@@ -90,6 +90,14 @@ public class CustomMachineRenderer implements BlockEntityRenderer<CustomMachineT
         }
         return false;
     }
+
+    /**
+     * 清除当前所有方块与结构需求的渲染
+     * */
+    public static void clearRequirementRenderer() {
+        boxToRender.clear();
+        blocksToRender.clear();
+    }
 }
 
 
