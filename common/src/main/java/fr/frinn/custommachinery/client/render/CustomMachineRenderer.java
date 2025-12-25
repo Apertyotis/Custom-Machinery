@@ -64,12 +64,14 @@ public class CustomMachineRenderer implements BlockEntityRenderer<CustomMachineT
     /**
      * 另外添加独立于原先框架的渲染结构方法，自动搜索BE的配方结构要求并开启/关闭渲染
      * @param be 待检测结构的方块实体
+     * @return boolean 传入方块实体有配方结构要求时，返回真
      */
-    public static void toggleRenderBlock(BlockEntity be) {
+    public static boolean toggleRenderBlock(BlockEntity be) {
         if (be instanceof MachineTile machine) {
-            if (blocksToRender.containsKey(machine.getMachine().getId())) {
-                blocksToRender.remove(machine);
-                return;
+            ResourceLocation id = machine.getMachine().getId();
+            if (blocksToRender.containsKey(id)) {
+                blocksToRender.remove(id);
+                return true;
             }
 
             for (var recipe: machine.getLevel().getRecipeManager().getAllRecipesFor(Registration.CUSTOM_MACHINE_RECIPE.get())) {
@@ -82,10 +84,11 @@ public class CustomMachineRenderer implements BlockEntityRenderer<CustomMachineT
                 if (requirement.isPresent()) {
                     var renderer = new StructureRenderer(((StructureRequirement)requirement.get()).getStructure()::getBlocks);
                     blocksToRender.put(machine.getMachine().getId(), renderer);
-                    return;
+                    return true;
                 }
             }
         }
+        return false;
     }
 }
 
