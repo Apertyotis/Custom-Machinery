@@ -72,6 +72,8 @@ public class MachineProcessor implements IProcessor, ISyncableStuff {
         if(!this.initialized)
             this.init();
 
+        // 配方成功结束时标记存储变化为true，并立即触发一次配方搜索
+        // 机器idle时，默认每20tick触发一次配方搜索
         if(this.currentRecipe == null)
             this.searchForRecipe(false);
 
