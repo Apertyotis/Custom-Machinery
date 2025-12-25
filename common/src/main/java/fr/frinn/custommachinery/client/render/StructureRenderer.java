@@ -31,12 +31,22 @@ public class StructureRenderer {
     private final long start;
     private final Function<Direction, Map<BlockPos, IIngredient<PartialBlockState>>> blocksGetter;
     private final CycleTimer timer;
+    private final boolean forever;
 
     public StructureRenderer(int time, Function<Direction, Map<BlockPos, IIngredient<PartialBlockState>>> blocksGetter) {
         this.time = time;
         this.start = System.currentTimeMillis();
         this.blocksGetter = blocksGetter;
         this.timer = new CycleTimer(() -> CMConfig.get().blockTagCycleTime);
+        this.forever = false;
+    }
+
+    public StructureRenderer(Function<Direction, Map<BlockPos, IIngredient<PartialBlockState>>> blocksGetter) {
+        this.time = 0;
+        this.start = System.currentTimeMillis();
+        this.blocksGetter = blocksGetter;
+        this.timer = new CycleTimer(() -> CMConfig.get().blockTagCycleTime);
+        this.forever = true;
     }
 
     public void render(PoseStack matrix, MultiBufferSource buffer, Direction direction, Level world, BlockPos machinePos) {
@@ -90,6 +100,6 @@ public class StructureRenderer {
     }
 
     public boolean shouldRender() {
-        return System.currentTimeMillis() < this.start + this.time;
+        return this.forever || System.currentTimeMillis() < this.start + this.time;
     }
 }

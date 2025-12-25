@@ -78,6 +78,9 @@ public class BlockRequirement extends AbstractDelayedChanceableRequirement<Block
         return Registration.BLOCK_REQUIREMENT.get();
     }
 
+    /**
+    * 测试配方时，检查是否有足够的空气/目标方块做放置/替换/破坏操作
+    */
     @Override
     public boolean test(BlockMachineComponent component, ICraftingContext context) {
         int amount = (int)context.getIntegerModifiedValue(this.amount, this, null);
@@ -91,6 +94,9 @@ public class BlockRequirement extends AbstractDelayedChanceableRequirement<Block
         };
     }
 
+    /**
+     * 非delay模式时，检查输入模式的方块放置/替换/破坏操作，失败返回error
+     * */
     @Override
     public CraftingResult processStart(BlockMachineComponent component, ICraftingContext context) {
         int amount = (int)context.getIntegerModifiedValue(this.amount, this, null);
@@ -126,6 +132,9 @@ public class BlockRequirement extends AbstractDelayedChanceableRequirement<Block
         return CraftingResult.pass();
     }
 
+    /**
+     * 非delay模式时，检查输出模式的方块放置/替换/破坏操作，失败返回error
+     * */
     @Override
     public CraftingResult processEnd(BlockMachineComponent component, ICraftingContext context) {
         int amount = (int)context.getIntegerModifiedValue(this.amount, this, null);
@@ -166,6 +175,9 @@ public class BlockRequirement extends AbstractDelayedChanceableRequirement<Block
         return Registration.BLOCK_MACHINE_COMPONENT.get();
     }
 
+    /**
+     * 执行check操作，失败则error
+     * */
     @Override
     public CraftingResult processTick(BlockMachineComponent component, ICraftingContext context) {
         if(this.action == ACTION.CHECK) {
@@ -188,6 +200,9 @@ public class BlockRequirement extends AbstractDelayedChanceableRequirement<Block
         return this.delay;
     }
 
+    /**
+     * 仅delay属于(0,1)时有效，直接放置/替换/摧毁方块，不成功则error
+     * */
     @Override
     public CraftingResult execute(BlockMachineComponent component, ICraftingContext context) {
         switch (this.action) {
@@ -259,8 +274,13 @@ public class BlockRequirement extends AbstractDelayedChanceableRequirement<Block
                 info.addTooltip(Component.literal("-").append(Component.translatable("custommachinery.requirements.block.none")));
             else if(!this.whitelist && this.filter.isEmpty())
                 info.addTooltip(Component.literal("-").append(Component.translatable("custommachinery.requirements.block.all")));
-            else
-                this.filter.forEach(block -> info.addTooltip(Component.literal("- ").append(Utils.getBlockName(block))));
+            else    // 合并显示上完全重复的文本
+                this.filter.stream()
+                        .map(Utils::getBlockName)
+                        .distinct()
+                        .forEach(blockName -> {
+                            info.addTooltip(Component.literal("- ").append(blockName));
+                        });
         }
         info.addTooltip(Component.translatable("custommachinery.requirements.block.info.box").withStyle(ChatFormatting.GOLD));
         info.setClickAction((machine, recipe, mouseButton) -> CustomMachineRenderer.addRenderBox(machine.getId(), this.pos));

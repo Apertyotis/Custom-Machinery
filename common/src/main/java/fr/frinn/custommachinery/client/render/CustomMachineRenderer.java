@@ -1,8 +1,11 @@
 package fr.frinn.custommachinery.client.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import fr.frinn.custommachinery.api.machine.MachineTile;
 import fr.frinn.custommachinery.common.init.CustomMachineTile;
+import fr.frinn.custommachinery.common.init.Registration;
 import fr.frinn.custommachinery.common.integration.config.CMConfig;
+import fr.frinn.custommachinery.common.requirement.StructureRequirement;
 import fr.frinn.custommachinery.common.util.PartialBlockState;
 import fr.frinn.custommachinery.common.util.ingredient.IIngredient;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -11,6 +14,7 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.AABB;
 
@@ -55,6 +59,33 @@ public class CustomMachineRenderer implements BlockEntityRenderer<CustomMachineT
 
     public static void addRenderBlock(ResourceLocation machine, Function<Direction, Map<BlockPos, IIngredient<PartialBlockState>>> blocks) {
         blocksToRender.put(machine, new StructureRenderer(CMConfig.get().structureRenderTime, blocks));
+    }
+
+    /**
+     * 另外添加独立于原先框架的渲染结构方法，自动搜索BE的配方结构要求并开启/关闭渲染
+     * @param be 待检测结构的方块实体
+     */
+    public static void toggleRenderBlock(BlockEntity be) {
+        if (be instanceof MachineTile machine) {
+            if (blocksToRender.containsKey(machine.getMachine().getId())) {
+                blocksToRender.remove(machine);
+                return;
+            }
+
+            for (var recipe: machine.getLevel().getRecipeManager().getAllRecipesFor(Registration.CUSTOM_MACHINE_RECIPE.get())) {
+                if (!machine.getMachine().getRecipeIds().contains(recipe.getMachineId()))
+                    continue;
+                var requirement = recipe.getRequirements()
+                        .stream()
+                        .filter(req -> req instanceof StructureRequirement)
+                        .findFirst();
+                if (requirement.isPresent()) {
+                    var renderer = new StructureRenderer(((StructureRequirement)requirement.get()).getStructure()::getBlocks);
+                    blocksToRender.put(machine.getMachine().getId(), renderer);
+                    return;
+                }
+            }
+        }
     }
 }
 
