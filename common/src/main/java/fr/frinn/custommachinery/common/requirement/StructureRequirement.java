@@ -119,7 +119,8 @@ public class StructureRequirement extends AbstractDelayedChanceableRequirement<S
             return CraftingResult.pass();
         if(this.action != Action.CHECK && getDelay() < context.getRemainingTime() / context.getRecipe().getRecipeTime())
             return CraftingResult.pass();
-
+        if(this.action == Action.CHECK)
+            return CraftingResult.pass();
         if(component.checkStructure(this.structure))
             return CraftingResult.success();
         else return CraftingResult.error(Component.translatable("custommachinery.requirements.structure.error"));
@@ -161,6 +162,10 @@ public class StructureRequirement extends AbstractDelayedChanceableRequirement<S
                 CustomMachineRenderer.addRenderBlock(machine.getId(), this.structure::getBlocks);
         });
         info.setItemIcon(Items.STRUCTURE_BLOCK);
+    }
+
+    public BlockStructure getStructure() {
+        return structure;
     }
 
     public enum Action {

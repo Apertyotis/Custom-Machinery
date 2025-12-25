@@ -87,9 +87,15 @@ public class ItemMachineComponent extends AbstractMachineComponent implements IS
         return this.filter.stream().anyMatch(ingredient -> ingredient.test(stack.getItem())) == this.whitelist && this.variant.canAccept(getManager(), stack);
     }
 
+    /**
+     * 计算槽位剩余容量，会考虑物品堆叠上限和槽位上限
+     * @return 返回剩余可放置物品数，0表示已满
+     */
     public int getRemainingSpace() {
-        if(!this.stack.isEmpty())
-            return this.capacity - this.stack.getCount();
+        if(!this.stack.isEmpty()) {
+            int maxAmount = Math.min(capacity, stack.getMaxStackSize());
+            return maxAmount - this.stack.getCount();
+        }
         return this.capacity;
     }
 
