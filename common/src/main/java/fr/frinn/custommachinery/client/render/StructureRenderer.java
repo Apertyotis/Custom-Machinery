@@ -38,16 +38,9 @@ public class StructureRenderer {
         this.start = System.currentTimeMillis();
         this.blocksGetter = blocksGetter;
         this.timer = new CycleTimer(() -> CMConfig.get().blockTagCycleTime);
-        this.forever = false;
+        this.forever = time <= 0;
     }
 
-    public StructureRenderer(Function<Direction, Map<BlockPos, IIngredient<PartialBlockState>>> blocksGetter) {
-        this.time = 0;
-        this.start = System.currentTimeMillis();
-        this.blocksGetter = blocksGetter;
-        this.timer = new CycleTimer(() -> CMConfig.get().blockTagCycleTime);
-        this.forever = true;
-    }
 
     public void render(PoseStack matrix, MultiBufferSource buffer, Direction direction, Level world, BlockPos machinePos) {
         Map<BlockPos, IIngredient<PartialBlockState>> blocks = this.blocksGetter.apply(direction);
