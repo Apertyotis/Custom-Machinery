@@ -2,6 +2,7 @@ package fr.frinn.custommachinery.client.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import fr.frinn.custommachinery.api.machine.MachineTile;
+import fr.frinn.custommachinery.api.requirement.IRequirement;
 import fr.frinn.custommachinery.common.crafting.machine.CustomMachineRecipe;
 import fr.frinn.custommachinery.common.init.CustomMachineTile;
 import fr.frinn.custommachinery.common.init.Registration;
@@ -25,9 +26,10 @@ import java.util.function.Function;
 
 public class CustomMachineRenderer implements BlockEntityRenderer<CustomMachineTile> {
 
-    private static final Map<ResourceLocation, BoxRenderer> boxToRender = new HashMap<>();
-    private static final Map<ResourceLocation, StructureRenderer> blocksToRender = new HashMap<>();
-    private static final Map<ResourceLocation, Integer> recipeToRender = new HashMap<>();
+    private static final Map<ResourceLocation, List<BoxRenderer>> boxToRender = new HashMap<>();
+    private static final Map<ResourceLocation, List<StructureRenderer>> blocksToRender = new HashMap<>();
+    private static final List<RenderRecipeContext> recipeToRender = new ArrayList<>();
+    private record RenderRecipeContext(ResourceLocation id, int time, boolean virtual) {}
 
     public CustomMachineRenderer(BlockEntityRendererProvider.Context context) {
 
@@ -42,36 +44,49 @@ public class CustomMachineRenderer implements BlockEntityRenderer<CustomMachineT
         ResourceLocation machineId = tile.getId();
         Direction machineFacing = tile.getBlockState().getValue(BlockStateProperties.HORIZONTAL_FACING);
         if(boxToRender.containsKey(machineId)) {
-            BoxRenderer boxRenderer = boxToRender.get(machineId);
-            if(boxRenderer.shouldRender())
-                boxRenderer.render(matrix, buffer, machineFacing);
-            else
-                boxToRender.remove(machineId);
+            List<BoxRenderer> rendererList = boxToRender.get(machineId);
+            var it = rendererList.iterator();
+            while (it.hasNext()) {
+                BoxRenderer boxRenderer = it.next();
+                if(boxRenderer.shouldRender())
+                    boxRenderer.render(matrix, buffer, machineFacing);
+                else
+                    it.remove();
+            }
+            if (rendererList.isEmpty()) boxToRender.remove(machineId);
         }
         if(blocksToRender.containsKey(machineId)) {
-            StructureRenderer structureRenderer = blocksToRender.get(machineId);
-            if(structureRenderer.shouldRender())
-                structureRenderer.render(matrix, buffer, machineFacing, tile.getLevel(), tile.getBlockPos());
-            else
-                blocksToRender.remove(machineId);
+            List<StructureRenderer> rendererList = blocksToRender.get(machineId);
+            var it = rendererList.iterator();
+            while (it.hasNext()) {
+                StructureRenderer structureRenderer = it.next();
+                if(structureRenderer.shouldRender())
+                    structureRenderer.render(matrix, buffer, machineFacing, tile.getLevel(), tile.getBlockPos());
+                else
+                    it.remove();
+            }
+            if (rendererList.isEmpty()) blocksToRender.remove(machineId);
         }
     }
 
     public static void addRenderBox(ResourceLocation machine, AABB box) {
-        boxToRender.put(machine, new BoxRenderer(CMConfig.get().boxRenderTime, box));
+        boxToRender.computeIfAbsent(machine, k -> new ArrayList<>())
+                .add(new BoxRenderer(CMConfig.get().boxRenderTime, box));
     }
 
     public static void addRenderBlock(ResourceLocation machine, Function<Direction, Map<BlockPos, IIngredient<PartialBlockState>>> blocks) {
-        blocksToRender.put(machine, new StructureRenderer(CMConfig.get().structureRenderTime, blocks));
+        blocksToRender.computeIfAbsent(machine, k -> new ArrayList<>())
+                .add(new StructureRenderer(CMConfig.get().structureRenderTime, blocks));
     }
 
     /**
      * 根据配方id添加结构渲染项
      * @param id CM配方的ResourceLocation
      * @param time 渲染毫秒数, 非正值表示无限时长
+     * @param virtual 传入true时, 渲染JEI显示的结构要求, 而非真实结构要求
      */
-    public static void addBlocksRenderById(ResourceLocation id, int time) {
-        recipeToRender.put(id, time);
+    public static void addBlocksRenderById(ResourceLocation id, int time, boolean virtual) {
+        recipeToRender.add(new RenderRecipeContext(id, time, virtual));
     }
 
     /**
@@ -93,9 +108,13 @@ public class CustomMachineRenderer implements BlockEntityRenderer<CustomMachineT
             for (var recipe: machine.getLevel().getRecipeManager().getAllRecipesFor(Registration.CUSTOM_MACHINE_RECIPE.get())) {
                 if (!machine.getMachine().getRecipeIds().contains(recipe.getMachineId()))
                     continue;
-                var blocksGetter = findStructureBlocks(recipe);
-                if (blocksGetter != null) {
-                    blocksToRender.put(machine.getMachine().getId(), new StructureRenderer(time, blocksGetter));
+                var blocksGetterList = findStructureBlocks(recipe, false);
+                if (!blocksGetterList.isEmpty()) {
+                    blocksToRender.computeIfAbsent(machine.getMachine().getId(), k -> new ArrayList<>()).addAll(
+                            blocksGetterList.stream()
+                                    .map(blocks -> new StructureRenderer(time, blocks))
+                                    .toList());
+                    return true;
                 }
             }
         }
@@ -108,6 +127,7 @@ public class CustomMachineRenderer implements BlockEntityRenderer<CustomMachineT
     public static void clearRequirementRenderer() {
         boxToRender.clear();
         blocksToRender.clear();
+        recipeToRender.clear();
     }
 
     /**
@@ -115,16 +135,20 @@ public class CustomMachineRenderer implements BlockEntityRenderer<CustomMachineT
      * @param tile CM方块实体
      */
     private void resolveRecipesToRender(CustomMachineTile tile) {
-        var it = recipeToRender.entrySet().iterator();
+        var it = recipeToRender.iterator();
         while (it.hasNext()) {
             var entry = it.next();
-            Optional<? extends Recipe<?>> recipe = tile.getLevel().getRecipeManager().byKey(entry.getKey());
+            Optional<? extends Recipe<?>> recipe = tile.getLevel().getRecipeManager().byKey(entry.id);
             if (recipe.isPresent() && recipe.get() instanceof CustomMachineRecipe cmrecipe) {
                 if (!tile.getMachine().getRecipeIds().contains(cmrecipe.getMachineId()))
                     continue;
-                var blocksGetter = findStructureBlocks(cmrecipe);
-                if (blocksGetter != null)
-                    blocksToRender.put(tile.getId(), new StructureRenderer(entry.getValue(), blocksGetter));
+                var blocksGetterList = findStructureBlocks(cmrecipe, entry.virtual);
+                if (!blocksGetterList.isEmpty()) {
+                    blocksToRender.computeIfAbsent(tile.getId(), k -> new ArrayList<>()).addAll(
+                            blocksGetterList.stream()
+                                    .map(blocks -> new StructureRenderer(entry.time, blocks))
+                                    .toList());
+                }
             }
             it.remove();
         }
@@ -133,15 +157,20 @@ public class CustomMachineRenderer implements BlockEntityRenderer<CustomMachineT
     /**
      * 给定配方搜索其结构需求
      * @param recipe CM配方
-     * @return 返回配方首个结构需求的方块提供器，无结构需求时返回null
+     * @param virtual 传入true时, 渲染JEI显示的结构要求, 而非真实结构要求
+     * @return 返回配方结构方块提供器的列表，无结构需求时返回空列表
      */
-    private static Function<Direction, Map<BlockPos, IIngredient<PartialBlockState>>> findStructureBlocks(CustomMachineRecipe recipe) {
-        for (var requirement: recipe.getRequirements()) {
+    private static List<Function<Direction, Map<BlockPos, IIngredient<PartialBlockState>>>> findStructureBlocks(CustomMachineRecipe recipe, boolean virtual) {
+        List<Function<Direction, Map<BlockPos, IIngredient<PartialBlockState>>>> blocksGetterList = new ArrayList<>();
+        List<IRequirement<?>> requirements;
+        if (virtual) requirements = recipe.getJeiRequirements();
+        else requirements = recipe.getRequirements();
+        for (var requirement: requirements) {
             if (requirement instanceof StructureRequirement structureRequirement) {
-                return structureRequirement.getStructure()::getBlocks;
+                blocksGetterList.add(structureRequirement.getStructure()::getBlocks);
             }
         }
-        return null;
+        return blocksGetterList;
     }
 }
 
