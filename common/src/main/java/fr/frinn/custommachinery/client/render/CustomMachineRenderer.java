@@ -135,6 +135,7 @@ public class CustomMachineRenderer implements BlockEntityRenderer<CustomMachineT
      * @param tile CM方块实体
      */
     private void resolveRecipesToRender(CustomMachineTile tile) {
+        if (tile.getLevel() == null) return;
         var it = recipeToRender.iterator();
         while (it.hasNext()) {
             var entry = it.next();
