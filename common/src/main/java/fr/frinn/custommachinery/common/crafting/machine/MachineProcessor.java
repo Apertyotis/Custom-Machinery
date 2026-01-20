@@ -18,6 +18,7 @@ import fr.frinn.custommachinery.api.requirement.IDelayedRequirement;
 import fr.frinn.custommachinery.api.requirement.IRequirement;
 import fr.frinn.custommachinery.api.requirement.ITickableRequirement;
 import fr.frinn.custommachinery.common.crafting.CraftingContext;
+import fr.frinn.custommachinery.common.init.CustomMachineTile;
 import fr.frinn.custommachinery.common.init.Registration;
 import fr.frinn.custommachinery.common.machine.MachineAppearance;
 import fr.frinn.custommachinery.common.network.syncable.DoubleSyncable;
@@ -225,6 +226,11 @@ public class MachineProcessor implements IProcessor, ISyncableStuff {
 
             this.recipeFinder.setInventoryChanged(true);
             this.searchForRecipe(true);
+
+            // 成功执行配方后，下一次自动IO无视冷却
+            if (this.tile instanceof CustomMachineTile cmbe) {
+                cmbe.setImmediatelyAutoIO(true);
+            }
         }
     }
 

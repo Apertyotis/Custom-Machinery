@@ -61,6 +61,8 @@ public abstract class CustomMachineTile extends MachineTile implements ISyncable
     private MachineStatus status = MachineStatus.IDLE;
     private Component errorMessage = Component.empty();
 
+    private boolean immediatelyAutoIO;
+
     //Set by recipes when processing
     @Nullable
     private MachineAppearance customAppearance = null;
@@ -413,5 +415,13 @@ public abstract class CustomMachineTile extends MachineTile implements ISyncable
             if(ref == null || ref == player || !(ref.containerMenu instanceof CustomMachineContainer))
                 iterator.remove();
         }
+    }
+
+    public boolean isImmediatelyAutoIO() {
+        return immediatelyAutoIO;
+    }
+
+    public void setImmediatelyAutoIO(boolean immediatelyAutoIO) {
+        this.immediatelyAutoIO = immediatelyAutoIO;
     }
 }

@@ -2,6 +2,7 @@ package fr.frinn.custommachinery.forge.transfer;
 
 import com.google.common.collect.Maps;
 import fr.frinn.custommachinery.common.component.handler.ItemComponentHandler;
+import fr.frinn.custommachinery.common.init.CustomMachineTile;
 import fr.frinn.custommachinery.common.util.transfer.ICommonItemHandler;
 import fr.frinn.custommachinery.impl.component.config.RelativeSide;
 import fr.frinn.custommachinery.impl.component.config.SideMode;
@@ -72,6 +73,10 @@ public class ForgeItemHandler implements ICommonItemHandler {
 
     @Override
     public void tick() {
+        if (this.handler.getManager().getTile() instanceof CustomMachineTile cmbe && cmbe.isImmediatelyAutoIO()) {
+            cooldown = 0;
+            cmbe.setImmediatelyAutoIO(false);
+        }
         if(--cooldown > 0) return;
         cooldown = 5;
         for(Direction side : Direction.values()) {
