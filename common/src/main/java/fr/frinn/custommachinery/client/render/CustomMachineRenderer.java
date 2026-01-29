@@ -2,12 +2,11 @@ package fr.frinn.custommachinery.client.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import fr.frinn.custommachinery.api.machine.MachineTile;
-import fr.frinn.custommachinery.api.requirement.IRequirement;
 import fr.frinn.custommachinery.common.crafting.machine.CustomMachineRecipe;
 import fr.frinn.custommachinery.common.init.CustomMachineTile;
 import fr.frinn.custommachinery.common.init.Registration;
 import fr.frinn.custommachinery.common.integration.config.CMConfig;
-import fr.frinn.custommachinery.common.requirement.StructureRequirement;
+import fr.frinn.custommachinery.common.util.BlockStructure;
 import fr.frinn.custommachinery.common.util.PartialBlockState;
 import fr.frinn.custommachinery.common.util.ingredient.IIngredient;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -108,7 +107,7 @@ public class CustomMachineRenderer implements BlockEntityRenderer<CustomMachineT
             for (var recipe: machine.getLevel().getRecipeManager().getAllRecipesFor(Registration.CUSTOM_MACHINE_RECIPE.get())) {
                 if (!machine.getMachine().getRecipeIds().contains(recipe.getMachineId()))
                     continue;
-                var blocksGetterList = findStructureBlocks(recipe, false);
+                var blocksGetterList = BlockStructure.findStructureBlocks(recipe, false);
                 if (!blocksGetterList.isEmpty()) {
                     blocksToRender.computeIfAbsent(machine.getMachine().getId(), k -> new ArrayList<>()).addAll(
                             blocksGetterList.stream()
@@ -143,7 +142,7 @@ public class CustomMachineRenderer implements BlockEntityRenderer<CustomMachineT
             if (recipe.isPresent() && recipe.get() instanceof CustomMachineRecipe cmrecipe) {
                 if (!tile.getMachine().getRecipeIds().contains(cmrecipe.getMachineId()))
                     continue;
-                var blocksGetterList = findStructureBlocks(cmrecipe, entry.virtual);
+                var blocksGetterList = BlockStructure.findStructureBlocks(cmrecipe, entry.virtual);
                 if (!blocksGetterList.isEmpty()) {
                     blocksToRender.computeIfAbsent(tile.getId(), k -> new ArrayList<>()).addAll(
                             blocksGetterList.stream()
@@ -153,25 +152,6 @@ public class CustomMachineRenderer implements BlockEntityRenderer<CustomMachineT
             }
             it.remove();
         }
-    }
-
-    /**
-     * 给定配方搜索其结构需求
-     * @param recipe CM配方
-     * @param virtual 传入true时, 渲染JEI显示的结构要求, 而非真实结构要求
-     * @return 返回配方结构方块提供器的列表，无结构需求时返回空列表
-     */
-    private static List<Function<Direction, Map<BlockPos, IIngredient<PartialBlockState>>>> findStructureBlocks(CustomMachineRecipe recipe, boolean virtual) {
-        List<Function<Direction, Map<BlockPos, IIngredient<PartialBlockState>>>> blocksGetterList = new ArrayList<>();
-        List<IRequirement<?>> requirements;
-        if (virtual) requirements = recipe.getJeiRequirements();
-        else requirements = recipe.getRequirements();
-        for (var requirement: requirements) {
-            if (requirement instanceof StructureRequirement structureRequirement) {
-                blocksGetterList.add(structureRequirement.getStructure()::getBlocks);
-            }
-        }
-        return blocksGetterList;
     }
 }
 
