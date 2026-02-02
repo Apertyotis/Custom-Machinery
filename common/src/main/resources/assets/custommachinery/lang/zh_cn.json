@@ -189,6 +189,7 @@
   "custommachinery.requirements.block.denied": "黑名单: ",
   "custommachinery.requirements.block.all": "任意方块",
   "custommachinery.requirements.block.none": "无",
+  "custommachinery.requirements.block.chance.info": "概率: %s%%",
   "custommachinery.requirements.block.check.error": "配方需要方块 %sx %s , 已有 %s",
   "custommachinery.requirements.block.check.info": "配方需要方块",
   "custommachinery.requirements.block.break.error": "无法破坏 %s , 位置: %s",

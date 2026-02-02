@@ -27,6 +27,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.AABB;
 
+import java.text.DecimalFormat;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -267,6 +268,14 @@ public class BlockRequirement extends AbstractDelayedChanceableRequirement<Block
         }
         if(action != null)
             info.addTooltip(action.withStyle(ChatFormatting.AQUA));
+
+        if(this.getChance() < 1) {
+            DecimalFormat df = new DecimalFormat("0.####");
+            String chanceString = df.format(this.getChance() * 100);
+            info.addTooltip(Component.translatable("custommachinery.requirements.block.chance.info", chanceString)
+                    .withStyle(ChatFormatting.GOLD));
+        }
+
         if(this.action != ACTION.PLACE) {
             if(this.action != ACTION.CHECK)
                 info.addTooltip(Component.translatable("custommachinery.requirements.block." + (this.whitelist ? "allowed" : "denied")).withStyle(this.whitelist ? ChatFormatting.GREEN : ChatFormatting.RED));
