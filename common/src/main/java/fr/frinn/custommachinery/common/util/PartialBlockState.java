@@ -21,6 +21,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.pattern.BlockInWorld;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.Property;
 
 import java.util.ArrayList;
@@ -94,24 +95,96 @@ public class PartialBlockState implements Predicate<BlockInWorld> {
     }
 
     public PartialBlockState rotate(Rotation rotation) {
-        if(this.properties.contains(BlockStateProperties.HORIZONTAL_FACING) && this.blockState.hasProperty(BlockStateProperties.HORIZONTAL_FACING) && !(this.blockState.getBlock() instanceof CustomMachineBlock)) {
-            Direction direction = this.blockState.getValue(BlockStateProperties.HORIZONTAL_FACING);
-            direction = rotation.rotate(direction);
-            BlockState blockState = this.blockState.setValue(BlockStateProperties.HORIZONTAL_FACING, direction);
-            List<Property<?>> properties = Lists.newArrayList(this.properties);
-            if(!properties.contains(BlockStateProperties.HORIZONTAL_FACING))
-                properties.add(BlockStateProperties.HORIZONTAL_FACING);
-            return new PartialBlockState(blockState, properties, this.nbt);
-        } else if(this.properties.contains(BlockStateProperties.FACING) && this.blockState.hasProperty(BlockStateProperties.FACING) && !(this.blockState.getBlock() instanceof CustomMachineBlock)) {
-            Direction direction = this.blockState.getValue(BlockStateProperties.FACING);
-            if(direction.getAxis() == Axis.Y)
-                return this;
-            direction = rotation.rotate(direction);
-            BlockState blockState = this.blockState.setValue(BlockStateProperties.FACING, direction);
-            List<Property<?>> properties = Lists.newArrayList(this.properties);
-            if(!properties.contains(BlockStateProperties.FACING))
-                properties.add(BlockStateProperties.FACING);
-            return new PartialBlockState(blockState, properties, this.nbt);
+        if (this.blockState.getBlock() instanceof CustomMachineBlock) {
+            return this;
+        }
+
+        // 常规朝向
+        if (this.blockState.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) {
+            if (this.properties.contains(BlockStateProperties.HORIZONTAL_FACING)) {
+                Direction direction = this.blockState.getValue(BlockStateProperties.HORIZONTAL_FACING);
+                direction = rotation.rotate(direction);
+                BlockState blockState = this.blockState.setValue(BlockStateProperties.HORIZONTAL_FACING, direction);
+                List<Property<?>> properties = Lists.newArrayList(this.properties);
+                if(!properties.contains(BlockStateProperties.HORIZONTAL_FACING))
+                    properties.add(BlockStateProperties.HORIZONTAL_FACING);
+                return new PartialBlockState(blockState, properties, this.nbt);
+            }
+        } else if (this.blockState.hasProperty(BlockStateProperties.FACING)) {
+            if (this.properties.contains(BlockStateProperties.FACING)){
+                Direction direction = this.blockState.getValue(BlockStateProperties.FACING);
+                if(direction.getAxis() == Axis.Y)
+                    return this;
+                direction = rotation.rotate(direction);
+                BlockState blockState = this.blockState.setValue(BlockStateProperties.FACING, direction);
+                List<Property<?>> properties = Lists.newArrayList(this.properties);
+                if (!properties.contains(BlockStateProperties.FACING))
+                    properties.add(BlockStateProperties.FACING);
+                return new PartialBlockState(blockState, properties, this.nbt);
+            }
+        }
+
+        // 轴朝向
+        else if (this.blockState.hasProperty(BlockStateProperties.HORIZONTAL_AXIS)) {
+            if (this.properties.contains(BlockStateProperties.HORIZONTAL_AXIS)) {
+                Direction direction = Direction.fromAxisAndDirection(
+                        this.blockState.getValue(BlockStateProperties.HORIZONTAL_AXIS),
+                        Direction.AxisDirection.POSITIVE);
+                direction = rotation.rotate(direction);
+                BlockState blockState = this.blockState.setValue(BlockStateProperties.HORIZONTAL_AXIS, direction.getAxis());
+                List<Property<?>> properties = Lists.newArrayList(this.properties);
+                if (!properties.contains(BlockStateProperties.HORIZONTAL_AXIS))
+                    properties.add(BlockStateProperties.HORIZONTAL_AXIS);
+                return new PartialBlockState(blockState, properties, this.nbt);
+            }
+        } else if (this.blockState.hasProperty(BlockStateProperties.AXIS)) {
+            if (this.properties.contains(BlockStateProperties.AXIS)) {
+                Direction direction = Direction.fromAxisAndDirection(
+                        this.blockState.getValue(BlockStateProperties.AXIS),
+                        Direction.AxisDirection.POSITIVE);
+                if (direction.getAxis() == Axis.Y)
+                    return this;
+                direction = rotation.rotate(direction);
+                BlockState blockState = this.blockState.setValue(BlockStateProperties.AXIS, direction.getAxis());
+                List<Property<?>> properties = Lists.newArrayList(this.properties);
+                if (!properties.contains(BlockStateProperties.AXIS))
+                    properties.add(BlockStateProperties.AXIS);
+                return new PartialBlockState(blockState, properties, this.nbt);
+            }
+        }
+
+        // 管道类朝向
+        else {
+            int directionOffset = switch (rotation) {
+                case NONE -> 0;
+                case CLOCKWISE_90 -> 1;
+                case CLOCKWISE_180 -> 2;
+                case COUNTERCLOCKWISE_90 -> 3;
+            };
+            List<BooleanProperty> plane = List.of(
+                    BlockStateProperties.NORTH, BlockStateProperties.EAST,
+                    BlockStateProperties.SOUTH, BlockStateProperties.WEST);
+            if (this.blockState.getProperties().containsAll(plane)) {
+                if (this.properties.stream().anyMatch(plane::contains)) {
+                    BlockState blockState = this.blockState
+                            .setValue(BlockStateProperties.NORTH, this.blockState.getValue(plane.get((4 - directionOffset) % 4)))
+                            .setValue(BlockStateProperties.EAST, this.blockState.getValue(plane.get((5 - directionOffset) % 4)))
+                            .setValue(BlockStateProperties.SOUTH, this.blockState.getValue(plane.get((6 - directionOffset) % 4)))
+                            .setValue(BlockStateProperties.WEST, this.blockState.getValue(plane.get((7 - directionOffset) % 4)));
+
+                    List<Property<?>> properties = new ArrayList<>();
+                    for (var i: this.properties) {
+                        if (i.equals(BlockStateProperties.NORTH)) properties.add(plane.get(directionOffset));
+                        else if (i.equals(BlockStateProperties.EAST)) properties.add(plane.get((directionOffset + 1) % 4));
+                        else if (i.equals(BlockStateProperties.SOUTH)) properties.add(plane.get((directionOffset + 2) % 4));
+                        else if (i.equals(BlockStateProperties.WEST)) properties.add(plane.get((directionOffset + 3) % 4));
+                        else {
+                            properties.add(i);
+                        }
+                    }
+                    return new PartialBlockState(blockState, properties, this.nbt);
+                }
+            }
         }
         return this;
     }
