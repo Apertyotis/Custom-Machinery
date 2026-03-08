@@ -25,22 +25,6 @@ public class RenderTypes extends RenderType {
                     .createCompositeState(true)
     );
 
-    public static final RenderType HIGHLIGHT_PHANTOM = create(
-            "highlight_phantom",
-            DefaultVertexFormat.BLOCK,
-            Mode.QUADS,
-            2097152,
-            true,
-            false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RENDERTYPE_TRANSLUCENT_SHADER)
-                    .setLightmapState(LIGHTMAP)
-                    .setTextureState(BLOCK_SHEET_MIPPED)
-                    .setDepthTestState(NO_DEPTH_TEST)
-                    .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
-                    .createCompositeState(true)
-    );
-
     public static final RenderType NOPE = create(
             "nope",
             DefaultVertexFormat.BLOCK,
