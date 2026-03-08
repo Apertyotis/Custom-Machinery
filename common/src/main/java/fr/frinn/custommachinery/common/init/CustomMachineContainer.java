@@ -128,28 +128,36 @@ public class CustomMachineContainer extends SyncableContainer {
     }
 
     @Override
-    public void clicked(int slotId, int dragType, ClickType clickTypeIn, Player player) {
-        if (slotId >= 0 && slotId < this.slots.size() && this.slots.get(slotId) instanceof SlotItemComponent slot && !slot.getItem().isEmpty()) {
-            tile.getComponentManager().getComponent(Registration.EXPERIENCE_MACHINE_COMPONENT.get()).ifPresent(
-                component -> {
-                    if (component.canRetrieveFromSlots()) {
-                        if (component.slotsFromCanRetrieve().isEmpty()) {
-                            player.giveExperiencePoints(Utils.toInt(component.getXp()));
-                            component.extractXp(component.getXp(), false);
-                        } else {
-                            component.slotsFromCanRetrieve().forEach(id -> {
-                                if (id.equals(slot.getComponent().getId())) {
-                                    player.giveExperiencePoints(Utils.toInt(component.getXp()));
-                                    component.extractXp(component.getXp(), false);
-                                }
-                            });
-                        }
+    public void clicked(int slotId, int button, ClickType clickType, Player player) {
+        if (slotId >= 0 && slotId < this.slots.size() && this.slots.get(slotId) instanceof SlotItemComponent slot) {
+            if (!slot.getItem().isEmpty()) {
+                tile.getComponentManager().getComponent(Registration.EXPERIENCE_MACHINE_COMPONENT.get()).ifPresent(component -> {
+                    if (!component.canRetrieveFromSlots())
+                        return;
+                    if (component.slotsFromCanRetrieve().isEmpty()) {
+                        player.giveExperiencePoints(Utils.toInt(component.getXp()));
+                        component.extractXp(component.getXp(), false);
+                    } else {
+                        component.slotsFromCanRetrieve().forEach(id -> {
+                            if (id.equals(slot.getComponent().getId())) {
+                                player.giveExperiencePoints(Utils.toInt(component.getXp()));
+                                component.extractXp(component.getXp(), false);
+                            }
+                        });
                     }
+                });
+            }
+
+            if (slot instanceof FilterSlotItemComponent filterSlot) {
+                if ((clickType == ClickType.PICKUP || clickType == ClickType.QUICK_MOVE)
+                        && (button == 0 || button == 1)
+                ) {
+                    filterSlot.clearFilterItem();
                 }
-            );
+            }
         }
         this.tile.setChanged();
-        super.clicked(slotId, dragType, clickTypeIn, player);
+        super.clicked(slotId, button, clickType, player);
     }
 
     @Override

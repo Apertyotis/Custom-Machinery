@@ -4,10 +4,11 @@ import fr.frinn.custommachinery.common.component.ItemMachineComponent;
 import fr.frinn.custommachinery.common.network.CSetFilterSlotItemPacket;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
-
-import java.util.Optional;
+import org.jetbrains.annotations.NotNull;
 
 public class FilterSlotItemComponent extends SlotItemComponent {
+    private boolean rendering = false;
+
     public FilterSlotItemComponent(ItemMachineComponent component, int index, int x, int y) {
         super(component, index, x, y);
     }
@@ -27,14 +28,25 @@ public class FilterSlotItemComponent extends SlotItemComponent {
         return false;
     }
 
+    public void clearFilterItem() {
+        this.getComponent().setItemStack(ItemStack.EMPTY);
+    }
+
+    public void setRendering(boolean rendering) {
+        this.rendering = rendering;
+    }
+
+    // 仅渲染期间返回内部物品
     @Override
-    public boolean mayPickup(Player player) {
-        return true;
+    public @NotNull ItemStack getItem() {
+        if (rendering)
+            return super.getItem();
+        else
+            return ItemStack.EMPTY;
     }
 
     @Override
-    public Optional<ItemStack> tryRemove(int count, int decrement, Player player) {
-        this.getComponent().setItemStack(ItemStack.EMPTY);
-        return Optional.empty();
+    public boolean mayPickup(Player player) {
+        return false;
     }
 }

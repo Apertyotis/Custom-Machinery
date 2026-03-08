@@ -33,7 +33,6 @@ public class StructureRenderer {
     private final boolean forever;
 
     private final float[] translucent_color = new float[]{1, 1, 1, 0.8f};
-    private final float[] normal_color = new float[]{1, 1, 1, 1};
 
     public StructureRenderer(int time, Function<Direction, Map<BlockPos, IIngredient<PartialBlockState>>> blocksGetter) {
         this.time = time;
@@ -66,11 +65,7 @@ public class StructureRenderer {
     }
 
     private void renderTransparentBlocks(Map<BlockPos, PartialBlockState> missing, PoseStack matrix, MultiBufferSource buffer) {
-        VertexConsumer builder;
-
-        boolean highlight = missing.size() <= 8;
-        if (!highlight) builder = buffer.getBuffer(RenderTypes.PHANTOM);
-        else builder = buffer.getBuffer(RenderTypes.HIGHLIGHT_PHANTOM);
+        VertexConsumer builder = buffer.getBuffer(RenderTypes.PHANTOM);
 
         missing.forEach((pos, state) -> {
             matrix.pushPose();
@@ -83,9 +78,9 @@ public class StructureRenderer {
             if(model != Minecraft.getInstance().getModelManager().getMissingModel()) {
                 Arrays.stream(Direction.values())
                         .flatMap(direction -> model.getQuads(state.getBlockState(), direction, RandomSource.create(42L)).stream())
-                        .forEach(quad -> builder.putBulkData(matrix.last(), quad, highlight ? normal_color : translucent_color, 1.0F, 1.0F, 1.0F, light, OverlayTexture.NO_OVERLAY, false));
+                        .forEach(quad -> builder.putBulkData(matrix.last(), quad, translucent_color, 1.0F, 1.0F, 1.0F, light, OverlayTexture.NO_OVERLAY, false));
                 model.getQuads(state.getBlockState(), null, RandomSource.create(42L))
-                        .forEach(quad -> builder.putBulkData(matrix.last(), quad, highlight ? normal_color : translucent_color, 1.0F, 1.0F, 1.0F, light, OverlayTexture.NO_OVERLAY, false));
+                        .forEach(quad -> builder.putBulkData(matrix.last(), quad, translucent_color, 1.0F, 1.0F, 1.0F, light, OverlayTexture.NO_OVERLAY, false));
             }
             matrix.popPose();
         });

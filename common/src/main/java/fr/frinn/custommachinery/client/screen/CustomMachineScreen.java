@@ -1,5 +1,6 @@
 package fr.frinn.custommachinery.client.screen;
 
+import com.mojang.datafixers.util.Pair;
 import fr.frinn.custommachinery.api.guielement.GuiElementType;
 import fr.frinn.custommachinery.api.guielement.IMachineScreen;
 import fr.frinn.custommachinery.common.guielement.BackgroundGuiElement;
@@ -8,13 +9,22 @@ import fr.frinn.custommachinery.common.init.CustomMachineTile;
 import fr.frinn.custommachinery.common.machine.CustomMachine;
 import fr.frinn.custommachinery.common.network.CGuiElementClickPacket;
 import fr.frinn.custommachinery.common.util.Comparators;
+import fr.frinn.custommachinery.common.util.slot.FilterSlotItemComponent;
 import fr.frinn.custommachinery.impl.guielement.AbstractGuiElementWidget;
 import fr.frinn.custommachinery.impl.guielement.GuiElementWidgetSupplierRegistry;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -67,7 +77,19 @@ public class CustomMachineScreen extends AbstractContainerScreen<CustomMachineCo
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        List<Integer> filterSlots = new ArrayList<>();
+        for (int i = 0; i < this.menu.slots.size(); i++) {
+            if (this.menu.slots.get(i) instanceof FilterSlotItemComponent filterSlot) {
+                filterSlot.setRendering(true);
+                filterSlots.add(i);
+            }
+        }
         super.render(graphics, mouseX, mouseY, partialTick);
+        for (int i: filterSlots) {
+            if (this.menu.slots.get(i) instanceof FilterSlotItemComponent filterSlot) {
+                filterSlot.setRendering(false);
+            }
+        }
         this.renderTooltip(graphics, mouseX, mouseY);
     }
 
