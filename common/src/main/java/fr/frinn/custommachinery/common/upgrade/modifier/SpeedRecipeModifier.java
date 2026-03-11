@@ -25,11 +25,11 @@ public class SpeedRecipeModifier extends RecipeModifier {
     }
 
     @Override
-    public double apply(double original, int upgradeAmount) {
+    public double apply(double original, double current, int upgradeAmount) {
         double modified = switch (this.operation) {
-            case ADDITION -> original + this.modifier * upgradeAmount;
-            case MULTIPLICATION -> original * this.modifier * upgradeAmount;
-            case EXPONENTIAL -> original * Math.pow(this.modifier, upgradeAmount);
+            case ADDITION -> current + this.modifier * upgradeAmount;
+            case MULTIPLICATION -> current + original * (this.modifier - 1) * upgradeAmount;
+            case EXPONENTIAL -> current * Math.pow(this.modifier, upgradeAmount);
         };
         return Mth.clamp(modified, this.min, this.max);
     }

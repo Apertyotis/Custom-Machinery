@@ -12,7 +12,7 @@ public interface IRecipeModifier {
 
     boolean shouldApply(RequirementType<?> type, RequirementIOMode mode, @Nullable String target);
 
-    double apply(double original, int upgradeAmount);
+    double apply(double original, double current, int upgradeAmount);
 
     Component getTooltip();
 

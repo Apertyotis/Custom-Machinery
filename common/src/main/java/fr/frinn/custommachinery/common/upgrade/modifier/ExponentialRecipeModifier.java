@@ -14,8 +14,8 @@ public class ExponentialRecipeModifier extends RecipeModifier {
     }
 
     @Override
-    public double apply(double original, int upgradeAmount) {
-        return Mth.clamp(original * Math.pow(this.modifier, upgradeAmount), this.min, this.max);
+    public double apply(double original, double current, int upgradeAmount) {
+        return Mth.clamp(current * Math.pow(this.modifier, upgradeAmount), this.min, this.max);
     }
 
     @Override

@@ -2,6 +2,7 @@ package fr.frinn.custommachinery.common.util.slot;
 
 import fr.frinn.custommachinery.common.component.ItemMachineComponent;
 import fr.frinn.custommachinery.common.component.variant.item.DefaultItemComponentVariant;
+import fr.frinn.custommachinery.common.component.variant.item.UpgradeItemComponentVariant;
 import net.minecraft.world.Container;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.entity.player.Player;
@@ -60,6 +61,8 @@ public class SlotItemComponent extends Slot {
 
     @Override
     public void setChanged() {
-        this.component.getManager().markDirty();
+        component.getManager().markDirty();
+        if (component.getVariant() == UpgradeItemComponentVariant.INSTANCE)
+            component.getManager().getTile().getUpgradeManager().markDirty();
     }
 }

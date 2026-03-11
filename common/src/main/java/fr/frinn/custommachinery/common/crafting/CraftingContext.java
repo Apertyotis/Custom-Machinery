@@ -91,12 +91,12 @@ public class CraftingContext implements ICraftingContext {
         return getModifiedValue(value, requirement, target) * this.getModifiedSpeed();
     }
 
-    private double getModifiedValue(double value, RequirementType<?> type, @Nullable String target, @Nullable RequirementIOMode mode) {
-        double modified = value;
+    private double getModifiedValue(double base, RequirementType<?> type, @Nullable String target, @Nullable RequirementIOMode mode) {
+        double modified = base;
         List<Pair<IRecipeModifier, Integer>> modifiers = type instanceof ITickableRequirement<?> ? this.upgrades.getAllModifiers() : this.fixedModifiers;
         for(Pair<IRecipeModifier, Integer> pair : modifiers) {
             if(pair.getFirst().shouldApply(type, mode, target))
-                modified = pair.getFirst().apply(modified, pair.getSecond());
+                modified = pair.getFirst().apply(base, modified, pair.getSecond());
         }
         return modified;
     }

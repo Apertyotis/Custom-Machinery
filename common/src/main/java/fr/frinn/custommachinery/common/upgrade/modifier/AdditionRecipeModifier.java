@@ -14,8 +14,8 @@ public class AdditionRecipeModifier extends RecipeModifier {
     }
 
     @Override
-    public double apply(double original, int upgradeAmount) {
-        return Mth.clamp(original + this.modifier * upgradeAmount, this.min, this.max);
+    public double apply(double original, double current, int upgradeAmount) {
+        return Mth.clamp(current + this.modifier * upgradeAmount, this.min, this.max);
     }
 
     @Override

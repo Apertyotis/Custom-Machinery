@@ -14,6 +14,7 @@ import fr.frinn.custommachinery.api.network.ISyncable;
 import fr.frinn.custommachinery.api.network.ISyncableStuff;
 import fr.frinn.custommachinery.common.component.variant.item.DefaultItemComponentVariant;
 import fr.frinn.custommachinery.common.component.variant.item.FilterItemComponentVariant;
+import fr.frinn.custommachinery.common.component.variant.item.UpgradeItemComponentVariant;
 import fr.frinn.custommachinery.common.init.Registration;
 import fr.frinn.custommachinery.common.network.syncable.ItemStackSyncable;
 import fr.frinn.custommachinery.common.network.syncable.SideConfigSyncable;
@@ -132,7 +133,8 @@ public class ItemMachineComponent extends AbstractMachineComponent implements IS
             if(!simulate) {
                 this.stack = Utils.makeItemStack(item, amount, nbt);
                 getManager().markDirty();
-                getManager().getTile().getUpgradeManager().markDirty();
+                if (getVariant() == UpgradeItemComponentVariant.INSTANCE)
+                    getManager().getTile().getUpgradeManager().markDirty();
             }
             return amount;
         } else if(this.stack.getItem() == item && (this.stack.getTag() == null || this.stack.getTag().equals(nbt))){
@@ -140,7 +142,8 @@ public class ItemMachineComponent extends AbstractMachineComponent implements IS
             if(!simulate) {
                 this.stack.grow(amount);
                 getManager().markDirty();
-                getManager().getTile().getUpgradeManager().markDirty();
+                if (getVariant() == UpgradeItemComponentVariant.INSTANCE)
+                    getManager().getTile().getUpgradeManager().markDirty();
             }
             return amount;
         }
@@ -163,7 +166,8 @@ public class ItemMachineComponent extends AbstractMachineComponent implements IS
         if(!simulate) {
             this.stack.shrink(amount);
             getManager().markDirty();
-            getManager().getTile().getUpgradeManager().markDirty();
+            if (getVariant() == UpgradeItemComponentVariant.INSTANCE)
+                getManager().getTile().getUpgradeManager().markDirty();
         }
         return removed;
     }
