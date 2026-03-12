@@ -31,8 +31,8 @@ public class ForgeRemoteEnergyHandler implements ICommonEnergyHandler {
     }
 
     private boolean init() {
-        innerEnergyHandler = (EnergyMachineComponent) remoteEnergyHandler.getManager()
-                .getComponentHandler(Registration.ENERGY_MACHINE_COMPONENT.get()).orElse(null);
+        innerEnergyHandler = remoteEnergyHandler.getManager()
+                .getComponent(Registration.ENERGY_MACHINE_COMPONENT.get()).orElse(null);
         if (innerEnergyHandler == null)
             return false;
         initialized = true;
