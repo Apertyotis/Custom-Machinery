@@ -46,6 +46,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 
+import static fr.frinn.custommachinery.common.util.Utils.RAND;
+
 public abstract class CustomMachineTile extends MachineTile implements ISyncableStuff {
 
     public static final ResourceLocation DUMMY = new ResourceLocation(CustomMachinery.MODID, "dummy");
@@ -61,7 +63,8 @@ public abstract class CustomMachineTile extends MachineTile implements ISyncable
     private MachineStatus status = MachineStatus.IDLE;
     private Component errorMessage = Component.empty();
 
-    private boolean immediatelyAutoIO;
+    public static final int AUTO_IO_COOLDOWN = 5;
+    private int autoIOCooldown;
 
     //Set by recipes when processing
     @Nullable
@@ -80,6 +83,7 @@ public abstract class CustomMachineTile extends MachineTile implements ISyncable
 
     public CustomMachineTile(BlockPos pos, BlockState state) {
         super(Registration.CUSTOM_MACHINE_TILE.get(), pos, state);
+        autoIOCooldown = RAND.nextInt(5);
     }
 
     public ResourceLocation getId() {
@@ -258,7 +262,10 @@ public abstract class CustomMachineTile extends MachineTile implements ISyncable
             return;
 
         level.getProfiler().push("Component tick");
+        tile.autoIOCooldown--;
         tile.componentManager.serverTick();
+        if (tile.autoIOCooldown <= 0)
+            tile.autoIOCooldown = AUTO_IO_COOLDOWN;
         level.getProfiler().pop();
 
         if(tile.isPaused())
@@ -419,11 +426,11 @@ public abstract class CustomMachineTile extends MachineTile implements ISyncable
         }
     }
 
-    public boolean isImmediatelyAutoIO() {
-        return immediatelyAutoIO;
+    public boolean shouldAutoIO() {
+        return autoIOCooldown <= 0;
     }
 
-    public void setImmediatelyAutoIO(boolean immediatelyAutoIO) {
-        this.immediatelyAutoIO = immediatelyAutoIO;
+    public void clearAutoIOCooldown() {
+        this.autoIOCooldown = 0;
     }
 }

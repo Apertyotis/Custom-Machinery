@@ -228,8 +228,8 @@ public class MachineProcessor implements IProcessor, ISyncableStuff {
             this.searchForRecipe(true);
 
             // 成功执行配方后，下一次自动IO无视冷却
-            if (this.tile instanceof CustomMachineTile cmbe) {
-                cmbe.setImmediatelyAutoIO(true);
+            if (this.tile instanceof CustomMachineTile be) {
+                be.clearAutoIOCooldown();
             }
         }
     }

@@ -1,7 +1,10 @@
 package fr.frinn.custommachinery.forge.transfer;
 
 import com.google.common.collect.Maps;
+import dev.architectury.hooks.fluid.forge.FluidStackHooksForge;
+import fr.frinn.custommachinery.common.component.FluidMachineComponent;
 import fr.frinn.custommachinery.common.component.handler.FluidComponentHandler;
+import fr.frinn.custommachinery.common.init.CustomMachineTile;
 import fr.frinn.custommachinery.common.util.transfer.ICommonFluidHandler;
 import fr.frinn.custommachinery.impl.component.config.RelativeSide;
 import fr.frinn.custommachinery.impl.component.config.SideMode;
@@ -11,6 +14,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
+import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 
@@ -23,7 +27,6 @@ public class ForgeFluidHandler implements ICommonFluidHandler {
 
     private final IFluidHandler generalHandler;
     private final LazyOptional<IFluidHandler> capability;
-    private final Map<Direction, SidedFluidStorage> sidedStorages = Maps.newEnumMap(Direction.class);
     private final Map<Direction, LazyOptional<IFluidHandler>> sidedWrappers = Maps.newEnumMap(Direction.class);
     private final Map<Direction, BlockEntity> neighbourStorages = Maps.newEnumMap(Direction.class);
     private final InteractionFluidStorage interactionFluidStorage;
@@ -34,7 +37,6 @@ public class ForgeFluidHandler implements ICommonFluidHandler {
         this.capability = LazyOptional.of(() -> this.generalHandler);
         for(Direction direction : Direction.values()) {
             SidedFluidStorage storage = new SidedFluidStorage(direction, fluidHandler);
-            this.sidedStorages.put(direction, storage);
             this.sidedWrappers.put(direction, LazyOptional.of(() -> storage));
         }
         this.interactionFluidStorage = new InteractionFluidStorage(this.fluidHandler);
@@ -63,6 +65,9 @@ public class ForgeFluidHandler implements ICommonFluidHandler {
 
     @Override
     public void tick() {
+        if (!((CustomMachineTile) this.fluidHandler.getManager().getTile()).shouldAutoIO())
+            return;
+
         //I/O between the machine and neighbour blocks.
         for(Direction side : Direction.values()) {
             if(this.fluidHandler.getComponents().stream().allMatch(component -> component.getConfig().getSideMode(side) == SideMode.NONE))
@@ -80,15 +85,19 @@ public class ForgeFluidHandler implements ICommonFluidHandler {
             else
                 neighbour = this.neighbourStorages.get(side).getCapability(ForgeCapabilities.FLUID_HANDLER, side.getOpposite());
 
-            neighbour.ifPresent(storage -> {
-                this.fluidHandler.getComponents().forEach(component -> {
-                    if(component.getConfig().isAutoInput() && component.getConfig().getSideMode(side).isInput() && component.getFluidStack().getAmount() < component.getCapacity())
-                        FluidUtil.tryFluidTransfer(this.sidedStorages.get(side), storage, Integer.MAX_VALUE, true);
+            neighbour.ifPresent(tank -> this.fluidHandler.getComponents().forEach(component -> {
+                if (component.getConfig().isAutoInput() && component.getConfig().getSideMode(side).isInput()
+                        && component.getFluidStack().getAmount() < component.getCapacity()
+                ) {
+                    insertComponent(component, tank);
+                }
 
-                    if(component.getConfig().isAutoOutput() && component.getConfig().getSideMode(side).isOutput() && component.getFluidStack().getAmount() > 0)
-                        FluidUtil.tryFluidTransfer(storage, this.sidedStorages.get(side), Integer.MAX_VALUE, true);
-                });
-            });
+                if (component.getConfig().isAutoOutput() && component.getConfig().getSideMode(side).isOutput()
+                        && component.getFluidStack().getAmount() > 0
+                ) {
+                    extractComponent(component, tank);
+                }
+            }));
         }
     }
 
@@ -96,5 +105,25 @@ public class ForgeFluidHandler implements ICommonFluidHandler {
     @Override
     public boolean interactWithFluidHandler(Player player, InteractionHand hand) {
         return FluidUtil.interactWithFluidHandler(player, hand, this.interactionFluidStorage);
+    }
+
+    public static void insertComponent(FluidMachineComponent component, IFluidHandler tank) {
+        FluidStack tryExtract = tank.drain(Integer.MAX_VALUE, IFluidHandler.FluidAction.SIMULATE);
+        if (!tryExtract.isEmpty() && component.isFluidValid(FluidStackHooksForge.fromForge(tryExtract))) {
+            long filled = component.insert(tryExtract.getFluid(), tryExtract.getAmount(), tryExtract.getTag(), false);
+            if (filled > 0) {
+                FluidStack extracted = tryExtract.copy();
+                extracted.setAmount((int) filled);
+                tank.drain(extracted, IFluidHandler.FluidAction.EXECUTE);
+            }
+        }
+    }
+
+    public static void extractComponent(FluidMachineComponent component, IFluidHandler tank) {
+        dev.architectury.fluid.FluidStack tryExtract = component.extract(Integer.MAX_VALUE, true);
+        int filled = tank.fill(FluidStackHooksForge.toForge(tryExtract), IFluidHandler.FluidAction.EXECUTE);
+        if (filled > 0) {
+            component.extract(filled, false);
+        }
     }
 }

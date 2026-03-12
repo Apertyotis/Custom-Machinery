@@ -7,7 +7,6 @@ import fr.frinn.custommachinery.common.util.transfer.ICommonItemHandler;
 import fr.frinn.custommachinery.impl.component.config.RelativeSide;
 import fr.frinn.custommachinery.impl.component.config.SideMode;
 import net.minecraft.core.Direction;
-import net.minecraft.util.RandomSource;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -29,9 +28,6 @@ public class ForgeItemHandler implements ICommonItemHandler {
     private final Map<Direction, LazyOptional<IItemHandler>> sidedWrappers = Maps.newEnumMap(Direction.class);
     private final Map<Direction, BlockEntity> neighbourStorages = Maps.newEnumMap(Direction.class);
 
-    private static final RandomSource RAND = RandomSource.create();
-
-    private int cooldown;
     public ForgeItemHandler(ItemComponentHandler handler) {
         this.handler = handler;
         this.generalHandler = new SidedItemHandler(null, handler);
@@ -41,8 +37,6 @@ public class ForgeItemHandler implements ICommonItemHandler {
             this.sidedHandlers.put(direction, sided);
             this.sidedWrappers.put(direction, LazyOptional.of(() -> sided));
         }
-        // 避免卡顿峰值
-        this.cooldown = RAND.nextInt(5);
     }
 
     public LazyOptional<IItemHandler> getCapability(@Nullable Direction side) {
@@ -73,13 +67,10 @@ public class ForgeItemHandler implements ICommonItemHandler {
 
     @Override
     public void tick() {
-        if (this.handler.getManager().getTile() instanceof CustomMachineTile cmbe && cmbe.isImmediatelyAutoIO()) {
-            cooldown = 0;
-            cmbe.setImmediatelyAutoIO(false);
-        }
-        if(--cooldown > 0) return;
-        cooldown = 5;
-        for(Direction side : Direction.values()) {
+        if (!((CustomMachineTile) this.handler.getManager().getTile()).shouldAutoIO())
+            return;
+
+        for (Direction side : Direction.values()) {
             if(this.handler.getComponents().stream().allMatch(component -> component.getConfig().getSideMode(side) == SideMode.NONE))
                 continue;
 
@@ -120,7 +111,7 @@ public class ForgeItemHandler implements ICommonItemHandler {
      * @param slot 要提取的外部存储槽位索引
      * @return 如果被提取的槽位为空或变为空，返回真
      * */
-    private boolean inputFromSlot(ItemSlot to, IItemHandler storage, int slot) {
+    private static boolean inputFromSlot(ItemSlot to, IItemHandler storage, int slot) {
         int maxAmount = storage.getSlotLimit(slot);
         ItemStack extract = storage.extractItem(slot, maxAmount, true);
         if (extract.isEmpty()) {
@@ -139,7 +130,7 @@ public class ForgeItemHandler implements ICommonItemHandler {
      * @param slots 要提取的外部存储槽位索引列表
      * @return 如果目标槽位被填满，返回真
      * */
-    private boolean inputFromSlots(ItemSlot to, IItemHandler storage, ArrayList<Integer> slots) {
+    private static boolean inputFromSlots(ItemSlot to, IItemHandler storage, ArrayList<Integer> slots) {
         if (slots != null) {
             var it = slots.iterator();
             while (it.hasNext()) {
@@ -155,7 +146,7 @@ public class ForgeItemHandler implements ICommonItemHandler {
      * @param inputCandidate 多方块机器的输入槽列表
      * @param storage 外部存储
      * */
-    private void autoInput(List<ItemSlot> inputCandidate, IItemHandler storage) {
+    public static void autoInput(List<ItemSlot> inputCandidate, IItemHandler storage) {
         ArrayList<Integer> indexes = null;
         String key = null;
         int i = 0, j = 0;
@@ -280,7 +271,7 @@ public class ForgeItemHandler implements ICommonItemHandler {
      * @param outputCandidate 多方块机器的输出槽列表
      * @param storage 外部存储
      * */
-    private void autoOutput(List<ItemSlot> outputCandidate, IItemHandler storage) {
+    public static void autoOutput(List<ItemSlot> outputCandidate, IItemHandler storage) {
         // 输出基本保持原逻辑，因为通常机器自定义输出槽少，而外部储存为标准实现，性能消耗尚可
         outputCandidate.forEach(slot -> {
             int maxAmount = slot.getComponent().getCapacity();
