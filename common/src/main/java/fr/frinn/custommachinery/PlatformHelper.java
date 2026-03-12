@@ -2,8 +2,7 @@ package fr.frinn.custommachinery;
 
 import dev.architectury.injectables.annotations.ExpectPlatform;
 import fr.frinn.custommachinery.common.component.EnergyMachineComponent;
-import fr.frinn.custommachinery.common.component.handler.FluidComponentHandler;
-import fr.frinn.custommachinery.common.component.handler.ItemComponentHandler;
+import fr.frinn.custommachinery.common.component.handler.*;
 import fr.frinn.custommachinery.common.init.CustomMachineTile;
 import fr.frinn.custommachinery.common.util.transfer.ICommonEnergyHandler;
 import fr.frinn.custommachinery.common.util.transfer.ICommonFluidHandler;
@@ -18,10 +17,16 @@ import net.minecraft.world.level.storage.loot.LootTable;
 
 import java.util.List;
 
+@SuppressWarnings("unused")
 public class PlatformHelper {
 
     @ExpectPlatform
     public static ICommonEnergyHandler createEnergyHandler(EnergyMachineComponent component) {
+        throw new AssertionError();
+    }
+
+    @ExpectPlatform
+    public static ICommonEnergyHandler createRemoteEnergyHandler(RemoteEnergyComponentHandler handler) {
         throw new AssertionError();
     }
 
@@ -31,7 +36,17 @@ public class PlatformHelper {
     }
 
     @ExpectPlatform
+    public static ICommonFluidHandler createRemoteFluidHandler(RemoteFluidComponentHandler handler) {
+        throw new AssertionError();
+    }
+
+    @ExpectPlatform
     public static ICommonItemHandler createItemHandler(ItemComponentHandler handler) {
+        throw new AssertionError();
+    }
+
+    @ExpectPlatform
+    public static ICommonItemHandler createRemoteItemHandler(RemoteItemComponentHandler handler) {
         throw new AssertionError();
     }
 

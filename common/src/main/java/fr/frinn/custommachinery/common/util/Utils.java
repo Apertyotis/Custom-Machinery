@@ -28,6 +28,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityTicker;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -95,6 +96,15 @@ public class Utils {
             case WEST -> //270° CCW
                     new AABB(-box.minZ, box.minY, box.minX, -box.maxZ, box.maxY, box.maxX); //No changes
             default -> new AABB(box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ);
+        };
+    }
+
+    public static BlockPos rotatePos(BlockPos pos, Direction to) {
+        return switch (to) {
+            case EAST -> pos.rotate(Rotation.COUNTERCLOCKWISE_90);
+            case NORTH -> pos.rotate(Rotation.CLOCKWISE_180);
+            case WEST -> pos.rotate(Rotation.CLOCKWISE_90);
+            default -> pos.rotate(Rotation.NONE);
         };
     }
 

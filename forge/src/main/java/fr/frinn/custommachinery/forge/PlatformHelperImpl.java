@@ -1,8 +1,7 @@
 package fr.frinn.custommachinery.forge;
 
 import fr.frinn.custommachinery.common.component.EnergyMachineComponent;
-import fr.frinn.custommachinery.common.component.handler.FluidComponentHandler;
-import fr.frinn.custommachinery.common.component.handler.ItemComponentHandler;
+import fr.frinn.custommachinery.common.component.handler.*;
 import fr.frinn.custommachinery.common.init.CustomMachineTile;
 import fr.frinn.custommachinery.common.util.transfer.ICommonEnergyHandler;
 import fr.frinn.custommachinery.common.util.transfer.ICommonFluidHandler;
@@ -10,11 +9,7 @@ import fr.frinn.custommachinery.common.util.transfer.ICommonItemHandler;
 import fr.frinn.custommachinery.common.util.transfer.IEnergyHelper;
 import fr.frinn.custommachinery.common.util.transfer.IFluidHelper;
 import fr.frinn.custommachinery.forge.init.ForgeCustomMachineTile;
-import fr.frinn.custommachinery.forge.transfer.ForgeEnergyHandler;
-import fr.frinn.custommachinery.forge.transfer.ForgeEnergyHelper;
-import fr.frinn.custommachinery.forge.transfer.ForgeFluidHandler;
-import fr.frinn.custommachinery.forge.transfer.ForgeFluidHelper;
-import fr.frinn.custommachinery.forge.transfer.ForgeItemHandler;
+import fr.frinn.custommachinery.forge.transfer.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.state.BlockState;
@@ -25,6 +20,7 @@ import net.minecraftforge.common.ForgeHooks;
 import java.lang.reflect.Field;
 import java.util.List;
 
+@SuppressWarnings("unused")
 public class PlatformHelperImpl {
 
     public static final ForgeEnergyHelper ENERGY_HELPER = new ForgeEnergyHelper();
@@ -34,12 +30,24 @@ public class PlatformHelperImpl {
         return new ForgeEnergyHandler(component);
     }
 
+    public static ICommonEnergyHandler createRemoteEnergyHandler(RemoteEnergyComponentHandler handler) {
+        return new ForgeRemoteEnergyHandler(handler);
+    }
+
     public static ICommonFluidHandler createFluidHandler(FluidComponentHandler handler) {
         return new ForgeFluidHandler(handler);
     }
 
+    public static ICommonFluidHandler createRemoteFluidHandler(RemoteFluidComponentHandler handler) {
+        return new ForgeRemoteFluidHandler(handler);
+    }
+
     public static ICommonItemHandler createItemHandler(ItemComponentHandler handler) {
         return new ForgeItemHandler(handler);
+    }
+
+    public static ICommonItemHandler createRemoteItemHandler(RemoteItemComponentHandler handler) {
+        return new ForgeRemoteItemHandler(handler);
     }
 
     public static CustomMachineTile createMachineTile(BlockPos pos, BlockState state) {

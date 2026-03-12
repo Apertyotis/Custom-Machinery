@@ -6,6 +6,7 @@ import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.DataResult;
 import fr.frinn.custommachinery.api.codec.NamedCodec;
 import net.minecraft.ResourceLocationException;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Registry;
 import net.minecraft.nbt.CompoundTag;
@@ -52,6 +53,14 @@ public class DefaultCodecs {
     public static final NamedCodec<ItemStack> ITEM_OR_STACK = NamedCodec.either(RegistrarCodec.ITEM, ITEM_STACK).xmap(either -> either.map(Item::getDefaultInstance, Function.identity()), Either::right, "Item Stack");
 
     public static final NamedCodec<Ingredient> INGREDIENT = NamedCodec.fromJson(Ingredient::fromJson, Ingredient::toJson, "Ingredient");
+
+    public static final NamedCodec<BlockPos> POS = NamedCodec.DOUBLE_STREAM.comapFlatMap(stream -> {
+        double[] arr = stream.toArray();
+        if (arr.length == 3)
+            return DataResult.success(BlockPos.containing(arr[0], arr[1], arr[2]));
+        else
+            return DataResult.error(() -> Arrays.toString(arr) + " is not an array of 3 elements");
+    }, pos -> DoubleStream.of(pos.getX(), pos.getY(), pos.getZ()), "Pos");
 
     public static final NamedCodec<AABB> BOX = NamedCodec.DOUBLE_STREAM.comapFlatMap(stream -> {
         double[] arr = stream.toArray();
