@@ -17,6 +17,7 @@ import net.minecraftforge.items.ItemHandlerHelper;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.function.Predicate;
 
 public class ForgeItemHandler implements ICommonItemHandler {
 
@@ -92,14 +93,14 @@ public class ForgeItemHandler implements ICommonItemHandler {
                                         && slot.getComponent().getConfig().getSideMode(side).isInput()
                                         && slot.getComponent().getItemStack().getCount() < slot.getComponent().getCapacity())
                         .toList();
-                autoInput(inputCandidate, storage);
+                autoInput(inputCandidate, storage, null);
 
                 List<ItemSlot> outputCandidate = sidedHandlers.get(side).getSlotList().stream().filter(
                                 slot -> slot.getComponent().getConfig().isAutoOutput()
                                         && slot.getComponent().getConfig().getSideMode(side).isOutput()
                                         && !slot.getComponent().getItemStack().isEmpty())
                         .toList();
-                autoOutput(outputCandidate, storage);
+                autoOutput(outputCandidate, storage, null);
             });
         }
     }
@@ -132,11 +133,7 @@ public class ForgeItemHandler implements ICommonItemHandler {
      * */
     private static boolean inputFromSlots(ItemSlot to, IItemHandler storage, ArrayList<Integer> slots) {
         if (slots != null) {
-            var it = slots.iterator();
-            while (it.hasNext()) {
-                if (inputFromSlot(to, storage, it.next()))
-                    it.remove();
-            }
+            slots.removeIf(integer -> inputFromSlot(to, storage, integer));
         }
         return to.getComponent().getRemainingSpace() <= 0;
     }
@@ -145,11 +142,13 @@ public class ForgeItemHandler implements ICommonItemHandler {
      * 从外部存储自动输入，会尽可能填满给定槽位
      * @param inputCandidate 多方块机器的输入槽列表
      * @param storage 外部存储
+     * @param filter 仅从外部存储获取符合条件的物品
      * */
-    public static void autoInput(List<ItemSlot> inputCandidate, IItemHandler storage) {
-        ArrayList<Integer> indexes = null;
-        String key = null;
+    public static void autoInput(List<ItemSlot> inputCandidate, IItemHandler storage, Predicate<ItemStack> filter) {
+        ArrayList<Integer> indexes;
+        String key;
         int i = 0, j = 0;
+        filter = filter == null ? item -> true : filter;
         // 相邻容器只会遍历一次，已扫描的部分做倒排索引
         HashMap<String, ArrayList<Integer>> invertedIndex = new LinkedHashMap<>();
         // 容器物品种类索引迭代器
@@ -168,7 +167,6 @@ public class ForgeItemHandler implements ICommonItemHandler {
                     if (inputFromSlots(inputCandidate.get(i), storage, indexes)) {
                         head = invertedIndex.entrySet().iterator();
                         i++;
-                        continue;
                     }
                 }
                 // 无记录，或已有记录未填满槽位，需要开始/继续遍历外部存储
@@ -176,7 +174,7 @@ public class ForgeItemHandler implements ICommonItemHandler {
                     boolean found = false;
                     for (; j < storage.getSlots(); j++) {
                         ItemStack item2 = storage.getStackInSlot(j);
-                        if (!item2.isEmpty()) {
+                        if (!item2.isEmpty() && filter.test(item2)) {
                             key = item2.getItem().toString();
                             // 找到任意物品则尝试插入
                             if (!inputFromSlot(inputCandidate.get(i), storage, j)) {
@@ -205,13 +203,12 @@ public class ForgeItemHandler implements ICommonItemHandler {
                         }
                     }
                     else {
-                        if (inputCandidate.get(i).getComponent().getRemainingSpace() > 0) {
-                            //当前槽仍有空位，回到循环开头
-                        } else {
+                        if (inputCandidate.get(i).getComponent().getRemainingSpace() <= 0) {
                             // 当前槽已填满，重置迭代器，增加循环计数
                             head = invertedIndex.entrySet().iterator();
                             i++;
                         }
+                        // 这之后会回到循环开头
                     }
                 }
             } else {
@@ -228,7 +225,7 @@ public class ForgeItemHandler implements ICommonItemHandler {
                 // 无记录，或已有记录未填满槽位，开始/继续遍历外部存储
                 for (; j < storage.getSlots(); j++) {
                     ItemStack item2 = storage.getStackInSlot(j);
-                    if (!item2.isEmpty()) {
+                    if (!item2.isEmpty() && filter.test(item2)) {
                         key = item2.getItem().toString();
                         // 找到物品，若种类相同则尝试插入
                         if (ItemStack.isSameItem(item, item2)) {
@@ -270,10 +267,13 @@ public class ForgeItemHandler implements ICommonItemHandler {
      * 对外部存储自动输出，一般会将槽位排空
      * @param outputCandidate 多方块机器的输出槽列表
      * @param storage 外部存储
+     * @param filter 仅输出内部符合条件的物品
      * */
-    public static void autoOutput(List<ItemSlot> outputCandidate, IItemHandler storage) {
+    public static void autoOutput(List<ItemSlot> outputCandidate, IItemHandler storage, Predicate<ItemStack> filter) {
         // 输出基本保持原逻辑，因为通常机器自定义输出槽少，而外部储存为标准实现，性能消耗尚可
         outputCandidate.forEach(slot -> {
+            if (filter != null && !filter.test(slot.getComponent().getItemStack()))
+                return;
             int maxAmount = slot.getComponent().getCapacity();
             ItemStack extract = slot.getComponent().extract(maxAmount, true);
             if (!extract.isEmpty()) {

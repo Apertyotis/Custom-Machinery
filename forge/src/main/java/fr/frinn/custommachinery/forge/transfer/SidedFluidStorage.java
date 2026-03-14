@@ -11,9 +11,7 @@ import net.minecraftforge.fluids.capability.IFluidHandler;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Predicate;
 
 public class SidedFluidStorage implements IFluidHandler {
@@ -56,20 +54,38 @@ public class SidedFluidStorage implements IFluidHandler {
 
     @Override
     public int fill(FluidStack forgeStack, FluidAction action) {
-        AtomicLong remaining = new AtomicLong(forgeStack.getAmount());
-        dev.architectury.fluid.FluidStack stack = FluidStackHooksForge.fromForge(forgeStack);
-        this.getSideComponents(SideMode::isInput).stream()
-                .filter(component -> component.isFluidValid(stack) && component.getRemainingSpace() > 0 && component.getMode().isInput())
-                .sorted(Comparator.comparingInt(component -> component.getFluidStack().isFluidEqual(stack) ? -1 : 1))
-                .forEach(component -> {
-                    long toInput = Math.min(remaining.get(), component.insert(stack.getFluid(), stack.getAmount(), stack.getTag(), true));
-                    if(toInput > 0) {
-                        remaining.addAndGet(-toInput);
-                        if (action.execute())
-                            component.insert(stack.getFluid(), toInput, stack.getTag(), false);
-                    }
-                });
-        return (int) (stack.getAmount() - remaining.get());
+        int remaining = forgeStack.getAmount();
+
+        List<FluidMachineComponent> list = handler.getFluidMap().get(forgeStack.getFluid());
+        if (list != null) {
+            for (FluidMachineComponent component: list) {
+                if (direction != null && !component.getConfig().getSideMode(direction).isInput())
+                    continue;
+                if (!component.getMode().isInput())
+                    continue;
+                FluidStack fluid = FluidStackHooksForge.toForge(component.getFluidStack());
+                if (!fluid.isEmpty() && fluid.isFluidEqual(forgeStack)) {
+                    remaining -= (int) component.insert(
+                            forgeStack.getFluid(), remaining, forgeStack.getTag(), action.simulate()
+                    );
+                    if (remaining <= 0)
+                        return forgeStack.getAmount();
+                }
+            }
+        }
+
+        dev.architectury.fluid.FluidStack archStack = FluidStackHooksForge.fromForge(forgeStack);
+        for (FluidMachineComponent component: getSideComponents(SideMode::isInput)) {
+            if (!component.getFluidStack().isEmpty() || !component.getMode().isInput())
+                continue;
+            if (!component.isFluidValid(archStack))
+                continue;
+            remaining -= (int) component.insert(forgeStack.getFluid(), remaining, forgeStack.getTag(), action.simulate());
+            if (remaining <= 0)
+                return forgeStack.getAmount();
+        }
+
+        return forgeStack.getAmount() - remaining;
     }
 
     @NotNull
@@ -77,24 +93,24 @@ public class SidedFluidStorage implements IFluidHandler {
     public FluidStack drain(FluidStack maxDrain, FluidAction action) {
         int remainingToDrain = maxDrain.getAmount();
 
-        for (FluidMachineComponent component : this.getSideComponents(SideMode::isOutput)) {
-            if(!component.getFluidStack().isEmpty() && component.getFluidStack().isFluidEqual(FluidStackHooksForge.fromForge(maxDrain))) {
-                FluidStack stack = FluidStackHooksForge.toForge(component.extract(maxDrain.getAmount(), true));
-                if(stack.getAmount() >= remainingToDrain) {
-                    if(action.execute())
-                        component.extract(remainingToDrain, false);
-                    return maxDrain;
-                } else {
-                    if(action.execute())
-                        component.extract(stack.getAmount(), false);
-                    remainingToDrain -= stack.getAmount();
-                }
-            }
-        }
-        if(remainingToDrain == maxDrain.getAmount())
+        List<FluidMachineComponent> list = handler.getFluidMap().get(maxDrain.getFluid());
+        if (list == null)
             return FluidStack.EMPTY;
-        else
-            return new FluidStack(maxDrain.getFluid(), maxDrain.getAmount() - remainingToDrain, maxDrain.getTag());
+
+        for (FluidMachineComponent component: list) {
+            if (direction != null && !component.getConfig().getSideMode(this.direction).isOutput())
+                continue;
+            if (!component.getMode().isOutput())
+                continue;
+            FluidStack fluidStack = FluidStackHooksForge.toForge(component.getFluidStack());
+            if (!fluidStack.isEmpty() && fluidStack.isFluidEqual(maxDrain)) {
+                int extracted = (int) component.extract(remainingToDrain, action.simulate()).getAmount();
+                remainingToDrain -= extracted;
+            }
+            if (remainingToDrain <= 0)
+                break;
+        }
+        return new FluidStack(maxDrain.getFluid(), maxDrain.getAmount() - remainingToDrain, maxDrain.getTag());
     }
 
     @NotNull
@@ -103,24 +119,21 @@ public class SidedFluidStorage implements IFluidHandler {
         FluidStack toDrain = FluidStack.EMPTY;
         int remainingToDrain = maxDrain;
         for (FluidMachineComponent component : this.getSideComponents(SideMode::isOutput)) {
-            if(!component.getFluidStack().isEmpty() && (toDrain.isEmpty() || component.getFluidStack().isFluidEqual(FluidStackHooksForge.fromForge(toDrain)))) {
-                FluidStack stack = FluidStackHooksForge.toForge(component.extract(remainingToDrain, true));
-                if(stack.getAmount() >= remainingToDrain) {
-                    if(action.execute())
-                        component.extract(remainingToDrain, false);
-                    return new FluidStack(stack.getFluid(), maxDrain, stack.getTag());
-                } else {
-                    if(toDrain.isEmpty())
-                        toDrain = stack;
-                    if(action.execute())
-                        component.extract(stack.getAmount(), false);
-                    remainingToDrain -= stack.getAmount();
-                }
+            if (!component.getMode().isOutput())
+                continue;
+            if(!component.getFluidStack().isEmpty() &&
+                    (toDrain.isEmpty() || toDrain.isFluidEqual(FluidStackHooksForge.toForge(component.getFluidStack())))
+            ) {
+                FluidStack extracted = FluidStackHooksForge.toForge(
+                        component.extract(remainingToDrain, action.simulate())
+                );
+                if (toDrain.isEmpty())
+                    toDrain = extracted;
+                remainingToDrain -= extracted.getAmount();
+                if (remainingToDrain <= 0)
+                    break;
             }
         }
-        if(toDrain.isEmpty() || remainingToDrain == maxDrain)
-            return FluidStack.EMPTY;
-        else
-            return new FluidStack(toDrain.getFluid(), maxDrain - remainingToDrain, toDrain.getTag());
+        return new FluidStack(toDrain.getFluid(), maxDrain - remainingToDrain, toDrain.getTag());
     }
 }

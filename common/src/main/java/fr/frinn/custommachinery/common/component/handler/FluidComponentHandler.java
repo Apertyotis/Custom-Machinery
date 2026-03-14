@@ -20,10 +20,7 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.material.Fluid;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -31,6 +28,9 @@ import java.util.function.Predicate;
 public class FluidComponentHandler extends AbstractComponentHandler<FluidMachineComponent> implements ISerializableComponent, ISyncableStuff, ITickableComponent, IDumpComponent {
 
     private final ICommonFluidHandler handler = PlatformHelper.createFluidHandler(this);
+
+    private final Map<Fluid, List<FluidMachineComponent>> fluidMap = new HashMap<>();
+    private boolean dirty = true;
 
     public FluidComponentHandler(IMachineComponentManager manager, List<FluidMachineComponent> components) {
         super(manager, components);
@@ -45,6 +45,22 @@ public class FluidComponentHandler extends AbstractComponentHandler<FluidMachine
 
     public ICommonFluidHandler getCommonFluidHandler() {
         return this.handler;
+    }
+
+    public void markDirty() {
+        dirty = true;
+    }
+
+    public Map<Fluid, List<FluidMachineComponent>> getFluidMap() {
+        if (!dirty)
+            return fluidMap;
+        dirty = false;
+        fluidMap.clear();
+        for (FluidMachineComponent component: getComponents()) {
+            fluidMap.computeIfAbsent(component.getFluidStack().getFluid(), key -> new ArrayList<>())
+                    .add(component);
+        }
+        return fluidMap;
     }
 
     @Override

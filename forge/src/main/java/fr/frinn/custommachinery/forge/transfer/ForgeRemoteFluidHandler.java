@@ -1,5 +1,7 @@
 package fr.frinn.custommachinery.forge.transfer;
 
+import dev.architectury.hooks.fluid.forge.FluidStackHooksForge;
+import fr.frinn.custommachinery.common.component.FluidMachineComponent;
 import fr.frinn.custommachinery.common.component.handler.FluidComponentHandler;
 import fr.frinn.custommachinery.common.component.handler.RemoteFluidComponentHandler;
 import fr.frinn.custommachinery.common.init.CustomMachineTile;
@@ -18,6 +20,11 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.fluids.capability.IFluidHandler;
+
+import java.util.List;
+
+import static fr.frinn.custommachinery.forge.transfer.ForgeFluidHandler.autoInput;
+import static fr.frinn.custommachinery.forge.transfer.ForgeFluidHandler.autoOutput;
 
 
 public class ForgeRemoteFluidHandler implements ICommonFluidHandler {
@@ -70,15 +77,21 @@ public class ForgeRemoteFluidHandler implements ICommonFluidHandler {
                 continue;
 
             LazyOptional<IFluidHandler> handler = be.getCapability(ForgeCapabilities.FLUID_HANDLER);
-            handler.ifPresent(tank -> innerFluidHandler.getComponents().forEach(component -> {
-                if (component.getConfig().isAutoInput() && component.getFluidStack().getAmount() < component.getCapacity()) {
-                    ForgeFluidHandler.insertComponent(component, tank);
-                }
 
-                if (component.getConfig().isAutoOutput() && component.getFluidStack().getAmount() > 0) {
-                    ForgeFluidHandler.extractComponent(component, tank);
-                }
-            }));
+            handler.ifPresent(tank -> {
+                List<FluidMachineComponent> inputCandidate = innerFluidHandler.getComponents().stream().filter(
+                        component -> remote.isSlotValid(component.getId())
+                                && component.getRemainingSpace() > 0)
+                        .toList();
+                autoInput(inputCandidate, tank, fluid -> remote.isFluidValid(FluidStackHooksForge.fromForge(fluid)));
+
+                List<FluidMachineComponent> outputCandidate = innerFluidHandler.getComponents().stream().filter(
+                        component -> remote.isSlotValid(component.getId())
+                                && component.getFluidStack().getAmount() > 0
+                                && component.getMaxOutput() > 0)
+                        .toList();
+                autoOutput(outputCandidate, tank, fluid -> remote.isFluidValid(FluidStackHooksForge.fromForge(fluid)));
+            });
         }
     }
 

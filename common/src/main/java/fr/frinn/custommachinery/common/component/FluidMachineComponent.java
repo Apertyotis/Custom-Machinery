@@ -11,6 +11,7 @@ import fr.frinn.custommachinery.api.component.ISideConfigComponent;
 import fr.frinn.custommachinery.api.component.MachineComponentType;
 import fr.frinn.custommachinery.api.network.ISyncable;
 import fr.frinn.custommachinery.api.network.ISyncableStuff;
+import fr.frinn.custommachinery.common.component.handler.FluidComponentHandler;
 import fr.frinn.custommachinery.common.init.Registration;
 import fr.frinn.custommachinery.common.network.syncable.FluidStackSyncable;
 import fr.frinn.custommachinery.common.network.syncable.SideConfigSyncable;
@@ -41,6 +42,8 @@ public class FluidMachineComponent extends AbstractMachineComponent implements I
 
     private FluidStack fluidStack = FluidStack.empty();
 
+    private FluidComponentHandler handler;
+
     public FluidMachineComponent(IMachineComponentManager manager, ComponentIOMode mode, String id, long capacity, long maxInput, long maxOutput, List<IIngredient<Fluid>> filter, boolean whitelist, SideConfig.Template configTemplate, boolean unique) {
         super(manager, mode);
         this.id = id;
@@ -51,6 +54,16 @@ public class FluidMachineComponent extends AbstractMachineComponent implements I
         this.whitelist = whitelist;
         this.config = configTemplate.build(this);
         this.unique = unique;
+    }
+
+    public FluidComponentHandler getComponentHandler() {
+        if (handler == null) {
+            handler = (FluidComponentHandler) getManager()
+                    .getComponentHandler(Registration.FLUID_MACHINE_COMPONENT.get()).orElse(null);
+            if (handler == null)
+                throw new IllegalStateException("[Custom Machinery] FluidComponentHandler not found!");
+        }
+        return handler;
     }
 
     @Override
@@ -84,15 +97,23 @@ public class FluidMachineComponent extends AbstractMachineComponent implements I
 
     @Override
     public void deserialize(CompoundTag nbt) {
-        if(nbt.contains("stack", Tag.TAG_COMPOUND))
-            this.fluidStack = FluidStack.read(nbt.getCompound("stack"));
+        if(nbt.contains("stack", Tag.TAG_COMPOUND)) {
+            FluidStack fluidStack = FluidStack.read(nbt.getCompound("stack"));
+            if (!this.fluidStack.isFluidEqual(fluidStack) || !this.fluidStack.isTagEqual(fluidStack))
+                getComponentHandler().markDirty();
+            this.fluidStack = fluidStack;
+        }
         if(nbt.contains("config"))
             this.config.deserialize(nbt.get("config"));
     }
 
     @Override
     public void getStuffToSync(Consumer<ISyncable<?, ?>> container) {
-        container.accept(FluidStackSyncable.create(() -> this.fluidStack, fluidStack -> this.fluidStack = fluidStack));
+        container.accept(FluidStackSyncable.create(() -> this.fluidStack, fluidStack -> {
+            if (!this.fluidStack.isFluidEqual(fluidStack) || !this.fluidStack.isTagEqual(fluidStack))
+                getComponentHandler().markDirty();
+            this.fluidStack = fluidStack;
+        }));
         container.accept(SideConfigSyncable.create(this::getConfig, this.config::set));
     }
 
@@ -108,6 +129,8 @@ public class FluidMachineComponent extends AbstractMachineComponent implements I
     }
 
     public void setFluidStack(FluidStack fluidStack) {
+        if (!this.fluidStack.isFluidEqual(fluidStack) || !this.fluidStack.isTagEqual(fluidStack))
+            getComponentHandler().markDirty();
         this.fluidStack = fluidStack.copy();
         getManager().markDirty();
     }
@@ -123,20 +146,19 @@ public class FluidMachineComponent extends AbstractMachineComponent implements I
     }
 
     public boolean isFluidValid(@NotNull FluidStack stack) {
-        //Check unique
-        if(this.unique && this.fluidStack.isEmpty() && this.getManager()
-                .getComponentHandler(Registration.FLUID_MACHINE_COMPONENT.get())
-                .stream()
-                .flatMap(handler -> handler.getComponents().stream())
-                .anyMatch(component -> component != this && component.getFluidStack().isFluidEqual(stack)))
+        // Check unique
+        if (unique && fluidStack.isEmpty()) {
+            List <FluidMachineComponent> list = getComponentHandler().getFluidMap().get(stack.getFluid());
+            if (list != null && list.stream().anyMatch(component -> component.fluidStack.isTagEqual(stack)))
+                return false;
+        }
+
+        // Check if same fluid
+        if (!fluidStack.isEmpty() && !(stack.isFluidEqual(fluidStack) && stack.isTagEqual(fluidStack)))
             return false;
 
-        //Check filter
-        if(this.filter.stream().anyMatch(ingredient -> ingredient.test(stack.getFluid())) != this.whitelist)
-            return false;
-
-        //Check if same fluid
-        return this.fluidStack.isEmpty() || stack.isFluidEqual(this.fluidStack);
+        // Check filter
+        return this.filter.stream().anyMatch(ingredient -> ingredient.test(stack.getFluid())) == this.whitelist;
     }
 
     public long insert(Fluid fluid, long amount, CompoundTag nbt, boolean simulate) {
@@ -148,6 +170,7 @@ public class FluidMachineComponent extends AbstractMachineComponent implements I
             if(!simulate) {
                 this.fluidStack = FluidStack.create(fluid, amount, nbt);
                 getManager().markDirty();
+                getComponentHandler().markDirty();
             }
         }
         else {
@@ -169,6 +192,8 @@ public class FluidMachineComponent extends AbstractMachineComponent implements I
         if(!simulate) {
             this.fluidStack.shrink(amount);
             getManager().markDirty();
+            if (fluidStack.isEmpty())
+                getComponentHandler().markDirty();
         }
         return removed;
     }
@@ -185,9 +210,10 @@ public class FluidMachineComponent extends AbstractMachineComponent implements I
         if(amount <= 0)
             return;
 
-        if(this.fluidStack.isEmpty())
+        if(this.fluidStack.isEmpty()) {
             this.fluidStack = FluidStack.create(fluid, amount, nbt);
-        else {
+            getComponentHandler().markDirty();
+        } else {
             amount = Utils.clamp(amount, 0, getRecipeRemainingSpace());
             this.fluidStack.grow(amount);
         }
@@ -201,6 +227,8 @@ public class FluidMachineComponent extends AbstractMachineComponent implements I
         amount = Utils.clamp(amount, 0, this.fluidStack.getAmount());
         this.fluidStack.shrink(amount);
         getManager().markDirty();
+        if (fluidStack.isEmpty())
+            getComponentHandler().markDirty();
     }
 
     public record Template(

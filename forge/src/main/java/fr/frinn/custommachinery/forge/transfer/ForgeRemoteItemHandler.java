@@ -68,20 +68,19 @@ public class ForgeRemoteItemHandler implements ICommonItemHandler {
                 continue;
             be.getCapability(ForgeCapabilities.ITEM_HANDLER).ifPresent(storage -> {
                 if (remote.getMode().isInput()) {
-
                     List<ItemSlot> inputCandidate = innerItemHandler.getSlotList().stream().filter(
-                            slot -> slot.getComponent().getConfig().isAutoInput()
+                            slot -> remote.isSlotValid(slot.getComponent().getId())
                                     && slot.getComponent().getItemStack().getCount() < slot.getComponent().getCapacity()
                             ).toList();
-                    ForgeItemHandler.autoInput(inputCandidate, storage);
+                    ForgeItemHandler.autoInput(inputCandidate, storage, remote::isItemValid);
                 }
 
                 if (remote.getMode().isOutput()) {
                     List<ItemSlot> outputCandidate = innerItemHandler.getSlotList().stream().filter(
-                            slot -> slot.getComponent().getConfig().isAutoOutput()
+                            slot -> remote.isSlotValid(slot.getComponent().getId())
                                     && !slot.getComponent().getItemStack().isEmpty()
                             ).toList();
-                    ForgeItemHandler.autoOutput(outputCandidate, storage);
+                    ForgeItemHandler.autoOutput(outputCandidate, storage, remote::isItemValid);
                 }
             });
         }
