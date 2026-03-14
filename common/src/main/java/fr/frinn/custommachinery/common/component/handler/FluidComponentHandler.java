@@ -29,7 +29,7 @@ public class FluidComponentHandler extends AbstractComponentHandler<FluidMachine
 
     private final ICommonFluidHandler handler = PlatformHelper.createFluidHandler(this);
 
-    private final Map<Fluid, List<FluidMachineComponent>> fluidMap = new HashMap<>();
+    private final Map<Fluid, List<FluidMachineComponent>> fluidMap = new LinkedHashMap<>();
     private boolean dirty = true;
 
     public FluidComponentHandler(IMachineComponentManager manager, List<FluidMachineComponent> components) {

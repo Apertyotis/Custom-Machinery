@@ -4,11 +4,13 @@ import dev.architectury.hooks.fluid.forge.FluidStackHooksForge;
 import fr.frinn.custommachinery.common.component.FluidMachineComponent;
 import fr.frinn.custommachinery.common.component.handler.FluidComponentHandler;
 import fr.frinn.custommachinery.common.util.Utils;
+import net.minecraft.world.level.material.Fluid;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 
 class InteractionFluidStorage implements IFluidHandler {
 
@@ -99,24 +101,27 @@ class InteractionFluidStorage implements IFluidHandler {
     @Nonnull
     @Override
     public FluidStack drain(int maxDrain, FluidAction action) {
-        FluidStack toDrain = FluidStack.EMPTY;
         int remainingToDrain = maxDrain;
-        for (FluidMachineComponent component : handler.getComponents()) {
-            if (!component.getMode().isOutput())
-                continue;
-            if(!component.getFluidStack().isEmpty() &&
-                    (toDrain.isEmpty() || toDrain.isFluidEqual(FluidStackHooksForge.toForge(component.getFluidStack())))
-            ) {
-                FluidStack extracted = FluidStackHooksForge.toForge(
-                        component.extract(remainingToDrain, action.simulate())
-                );
-                if (toDrain.isEmpty())
-                    toDrain = extracted;
-                remainingToDrain -= extracted.getAmount();
-                if (remainingToDrain <= 0)
-                    break;
+        Map<Fluid, List<FluidMachineComponent>> map = handler.getFluidMap();
+
+        for (var entry: map.entrySet()) {
+            List<FluidMachineComponent> list = entry.getValue();
+            FluidStack toDrain = FluidStack.EMPTY;
+            for (var component: list) {
+                if (component.getFluidStack().isEmpty() || !component.getMode().isOutput())
+                    continue;
+                if (toDrain.isEmpty() || toDrain.isFluidEqual(FluidStackHooksForge.toForge(component.getFluidStack()))) {
+                    FluidStack extracted = FluidStackHooksForge.toForge(component.extract(remainingToDrain, action.simulate()));
+                    remainingToDrain -= extracted.getAmount();
+                    if (toDrain.isEmpty())
+                        toDrain = extracted;
+                    if (remainingToDrain <= 0)
+                        break;
+                }
             }
+            if (!toDrain.isEmpty())
+                return new FluidStack(toDrain.getFluid(), maxDrain - remainingToDrain, toDrain.getTag());
         }
-        return new FluidStack(toDrain.getFluid(), maxDrain - remainingToDrain, toDrain.getTag());
+        return FluidStack.EMPTY;
     }
 }
