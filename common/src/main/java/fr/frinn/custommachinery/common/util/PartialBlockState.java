@@ -222,7 +222,8 @@ public class PartialBlockState implements Predicate<BlockInWorld> {
             Comparable<?> value = this.blockState.getValue(property);
             builder.append(property.getName());
             builder.append("=");
-            builder.append(value);
+            //noinspection rawtypes,unchecked
+            builder.append(((Property) property).getName(value));
             if(iterator.hasNext())
                 builder.append(",");
             else
