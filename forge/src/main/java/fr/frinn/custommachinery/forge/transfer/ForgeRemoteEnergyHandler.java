@@ -62,14 +62,14 @@ public class ForgeRemoteEnergyHandler implements ICommonEnergyHandler {
             if (be == null)
                 continue;
             be.getCapability(ForgeCapabilities.ENERGY).ifPresent(storage -> {
-                if(innerEnergyHandler.getConfig().isAutoInput() && innerEnergyHandler.getEnergy() < innerEnergyHandler.getCapacity()) {
+                if(remote.getMode().isInput() && innerEnergyHandler.getEnergy() < innerEnergyHandler.getCapacity()) {
                     int tryExtract = storage.extractEnergy(Integer.MAX_VALUE, true);
                     int inserted = (int) innerEnergyHandler.receiveEnergy(tryExtract, false);
                     if (inserted > 0)
                         storage.extractEnergy(inserted, false);
                 }
 
-                if(innerEnergyHandler.getConfig().isAutoOutput() && innerEnergyHandler.getEnergy() > 0) {
+                if(remote.getMode().isOutput() && innerEnergyHandler.getEnergy() > 0) {
                     int tryExtract = (int) innerEnergyHandler.extractEnergy(Integer.MAX_VALUE, true);
                     int inserted = storage.receiveEnergy(tryExtract, false);
                     if (inserted > 0)
