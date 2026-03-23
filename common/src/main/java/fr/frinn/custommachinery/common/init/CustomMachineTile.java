@@ -10,6 +10,7 @@ import fr.frinn.custommachinery.api.machine.MachineStatus;
 import fr.frinn.custommachinery.api.machine.MachineTile;
 import fr.frinn.custommachinery.api.network.ISyncable;
 import fr.frinn.custommachinery.api.network.ISyncableStuff;
+import fr.frinn.custommachinery.common.compat.create.SchematicWorld;
 import fr.frinn.custommachinery.common.component.DummyComponentManager;
 import fr.frinn.custommachinery.common.component.MachineComponentManager;
 import fr.frinn.custommachinery.common.crafting.DummyProcessor;
@@ -122,7 +123,7 @@ public abstract class CustomMachineTile extends MachineTile implements ISyncable
 
     @Override
     public void setStatus(MachineStatus status, Component message) {
-        if(this.status != status) {
+        if(this.status != status && !SchematicWorld.is(getLevel())) {
             this.componentManager.getComponents().values().forEach(component -> component.onStatusChanged(this.status, status, message));
             this.status = status;
             this.errorMessage = message;
