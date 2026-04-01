@@ -13,6 +13,7 @@ import fr.frinn.custommachinery.api.network.ISyncable;
 import fr.frinn.custommachinery.api.network.ISyncableStuff;
 import fr.frinn.custommachinery.common.component.handler.FluidComponentHandler;
 import fr.frinn.custommachinery.common.init.Registration;
+import fr.frinn.custommachinery.common.integration.config.CMConfig;
 import fr.frinn.custommachinery.common.network.syncable.FluidStackSyncable;
 import fr.frinn.custommachinery.common.network.syncable.SideConfigSyncable;
 import fr.frinn.custommachinery.common.util.Utils;
@@ -92,7 +93,8 @@ public class FluidMachineComponent extends AbstractMachineComponent implements I
     public void serialize(CompoundTag nbt) {
         if(!this.fluidStack.isEmpty())
             nbt.put("stack", this.fluidStack.write(new CompoundTag()));
-        nbt.put("config", this.config.serialize());
+        if(!CMConfig.get().dontSaveSideConfig)
+            nbt.put("config", this.config.serialize());
     }
 
     @Override
@@ -103,7 +105,7 @@ public class FluidMachineComponent extends AbstractMachineComponent implements I
                 getComponentHandler().markDirty();
             this.fluidStack = fluidStack;
         }
-        if(nbt.contains("config"))
+        if(nbt.contains("config") && !CMConfig.get().dontSaveSideConfig)
             this.config.deserialize(nbt.get("config"));
     }
 

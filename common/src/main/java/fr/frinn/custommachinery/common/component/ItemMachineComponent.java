@@ -16,6 +16,7 @@ import fr.frinn.custommachinery.common.component.variant.item.DefaultItemCompone
 import fr.frinn.custommachinery.common.component.variant.item.FilterItemComponentVariant;
 import fr.frinn.custommachinery.common.component.variant.item.UpgradeItemComponentVariant;
 import fr.frinn.custommachinery.common.init.Registration;
+import fr.frinn.custommachinery.common.integration.config.CMConfig;
 import fr.frinn.custommachinery.common.network.syncable.ItemStackSyncable;
 import fr.frinn.custommachinery.common.network.syncable.SideConfigSyncable;
 import fr.frinn.custommachinery.common.util.Utils;
@@ -190,13 +191,14 @@ public class ItemMachineComponent extends AbstractMachineComponent implements IS
     public void serialize(CompoundTag nbt) {
         if(!stack.isEmpty())
             stack.save(nbt);
-        nbt.put("config", this.config.serialize());
+        if(!CMConfig.get().dontSaveSideConfig)
+            nbt.put("config", this.config.serialize());
     }
 
     @Override
     public void deserialize(CompoundTag nbt) {
         this.stack = ItemStack.of(nbt);
-        if(nbt.contains("config"))
+        if(nbt.contains("config") && !CMConfig.get().dontSaveSideConfig)
             this.config.deserialize(nbt.get("config"));
     }
 

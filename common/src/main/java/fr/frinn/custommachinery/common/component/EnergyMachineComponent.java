@@ -14,6 +14,7 @@ import fr.frinn.custommachinery.api.component.MachineComponentType;
 import fr.frinn.custommachinery.api.network.ISyncable;
 import fr.frinn.custommachinery.api.network.ISyncableStuff;
 import fr.frinn.custommachinery.common.init.Registration;
+import fr.frinn.custommachinery.common.integration.config.CMConfig;
 import fr.frinn.custommachinery.common.network.syncable.LongSyncable;
 import fr.frinn.custommachinery.common.network.syncable.SideConfigSyncable;
 import fr.frinn.custommachinery.common.util.Utils;
@@ -134,14 +135,15 @@ public class EnergyMachineComponent extends AbstractMachineComponent implements 
     @Override
     public void serialize(CompoundTag nbt) {
         nbt.putLong("energy", this.energy);
-        nbt.put("config", this.config.serialize());
+        if (!CMConfig.get().dontSaveSideConfig)
+            nbt.put("config", this.config.serialize());
     }
 
     @Override
     public void deserialize(CompoundTag nbt) {
         if(nbt.contains("energy", Tag.TAG_LONG))
             this.energy = Math.min(nbt.getLong("energy"), this.capacity);
-        if(nbt.contains("config"))
+        if(nbt.contains("config") && !CMConfig.get().dontSaveSideConfig)
             this.config.deserialize(nbt.get("config"));
     }
 

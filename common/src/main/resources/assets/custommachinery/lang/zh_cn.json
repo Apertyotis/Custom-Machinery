@@ -289,6 +289,7 @@
   "text.autoconfig.custommachinery.option.itemSlotCycleTime": "物品槽标签循环时间",
   "text.autoconfig.custommachinery.option.needAdvancedInfoForRecipeID": "需要配方 ID 的高级信息",
   "text.autoconfig.custommachinery.option.modelFolders": "模型文件夹",
+  "text.autoconfig.custommachinery.option.dontSaveSideConfig": "不保存SideConfig配置",
 
   "unit.energy.forge": "FE",
   "unit.energy.fabric": "E"

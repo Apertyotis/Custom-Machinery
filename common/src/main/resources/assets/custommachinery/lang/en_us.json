@@ -431,6 +431,7 @@
   "text.autoconfig.custommachinery.option.needAdvancedInfoForRecipeID": "Need advanced info for recipe ID",
   "text.autoconfig.custommachinery.option.modelFolders": "Models folders",
   "text.autoconfig.custommachinery.option.defaultNewMachinePath": "New Machine Path",
+  "text.autoconfig.custommachinery.option.dontSaveSideConfig": "Don't Save Side Config",
 
   "unit.energy.forge": "FE",
   "unit.energy.fabric": "E"

@@ -57,6 +57,10 @@ public class CMConfig implements ConfigData {
     @Comment("The default directory for new machine json files.\nThe default is the root of the modpack folder.\nSpecify as a relative path (\"saves/my-world/datapacks/My Pack/data/custommachinery/machines\")")
     public String defaultNewMachinePath = "";
 
+    @Category("Misc")
+    @Comment("Prevent machines from persisting the side config.")
+    public boolean dontSaveSideConfig = false;
+
     public static CMConfig get() {
         return AutoConfig.getConfigHolder(CMConfig.class).getConfig();
     }
