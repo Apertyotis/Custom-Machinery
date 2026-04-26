@@ -1,12 +1,8 @@
 package fr.frinn.custommachinery.client.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import fr.frinn.custommachinery.api.machine.MachineTile;
-import fr.frinn.custommachinery.common.crafting.machine.CustomMachineRecipe;
 import fr.frinn.custommachinery.common.init.CustomMachineTile;
-import fr.frinn.custommachinery.common.init.Registration;
 import fr.frinn.custommachinery.common.integration.config.CMConfig;
-import fr.frinn.custommachinery.common.util.BlockStructure;
 import fr.frinn.custommachinery.common.util.PartialBlockState;
 import fr.frinn.custommachinery.common.util.ingredient.IIngredient;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -15,8 +11,6 @@ import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.AABB;
 
@@ -27,19 +21,14 @@ public class CustomMachineRenderer implements BlockEntityRenderer<CustomMachineT
 
     private static final Map<ResourceLocation, List<BoxRenderer>> boxToRender = new HashMap<>();
     private static final Map<ResourceLocation, List<StructureRenderer>> blocksToRender = new HashMap<>();
-    private static final List<RenderRecipeContext> recipeToRender = new ArrayList<>();
-    private record RenderRecipeContext(ResourceLocation id, int time, boolean virtual) {}
+    private static final Map<ResourceLocation, Map<String, StructureRenderer>> generalStructureToRender = new HashMap<>();
 
-    public CustomMachineRenderer(BlockEntityRendererProvider.Context context) {
-
-    }
+    public CustomMachineRenderer(BlockEntityRendererProvider.Context context) {}
 
     @Override
     public void render(CustomMachineTile tile, float partialTicks, PoseStack matrix, MultiBufferSource buffer, int combinedLight, int combinedOverlay) {
         if(tile.getLevel() == null)
             return;
-        if (!recipeToRender.isEmpty())
-            resolveRecipesToRender(tile);
         ResourceLocation machineId = tile.getId();
         Direction machineFacing = tile.getBlockState().getValue(BlockStateProperties.HORIZONTAL_FACING);
         if(boxToRender.containsKey(machineId)) {
@@ -66,6 +55,25 @@ public class CustomMachineRenderer implements BlockEntityRenderer<CustomMachineT
             }
             if (rendererList.isEmpty()) blocksToRender.remove(machineId);
         }
+
+        Map<String, StructureRenderer> map = generalStructureToRender.get(machineId);
+        if (map != null) {
+            List<String> toRemove = new ArrayList<>();
+            for (var entry: map.entrySet()) {
+                if (entry.getValue().shouldRender()) {
+                    entry.getValue().initForGeneralStructure(tile, entry.getKey());
+                    entry.getValue().render(matrix, buffer, machineFacing, tile.getLevel(), tile.getBlockPos());
+                } else {
+                    toRemove.add(entry.getKey());
+                }
+            }
+            for (String key: toRemove) {
+                map.remove(key);
+            }
+            if (map.isEmpty()) {
+                generalStructureToRender.remove(machineId);
+            }
+        }
     }
 
     public static void addRenderBox(ResourceLocation machine, AABB box) {
@@ -79,80 +87,18 @@ public class CustomMachineRenderer implements BlockEntityRenderer<CustomMachineT
     }
 
     /**
-     * 根据配方id添加结构渲染项
-     * @param id CM配方的ResourceLocation
-     * @param time 渲染毫秒数, 非正值表示无限时长
-     * @param virtual 传入true时, 渲染JEI显示的结构要求, 而非真实结构要求
+     * 渲染指定类型机器的指定结构，重复调用则覆盖渲染时长
+     * @param machineId 机器 id
+     * @param structureId 结构 id
+     * @param time 渲染时长，非正值表示无限
      */
-    public static void addBlocksRenderById(ResourceLocation id, int time, boolean virtual) {
-        recipeToRender.add(new RenderRecipeContext(id, time, virtual));
-    }
-
-    /**
-     * 根据BE添加/移除结构渲染项, 搜索传入CM机器的第一个配方结构需求, 加入渲染列表
-     * @param be 待检测结构的方块实体
-     * @param time 渲染毫秒数, 非正值表示无限时长
-     * @return boolean 传入方块实体有配方结构要求时，返回真
-     */
-    public static boolean addBlocksRenderByBE(BlockEntity be, int time) {
-        if (be instanceof MachineTile machine) {
-            ResourceLocation id = machine.getMachine().getId();
-            if (blocksToRender.containsKey(id)) {
-                blocksToRender.remove(id);
-                return true;
-            }
-
-            var level = machine.getLevel();
-            if (level == null) return false;
-            for (var recipe: machine.getLevel().getRecipeManager().getAllRecipesFor(Registration.CUSTOM_MACHINE_RECIPE.get())) {
-                if (!machine.getMachine().getRecipeIds().contains(recipe.getMachineId()))
-                    continue;
-                var blocksGetterList = BlockStructure.findStructureBlocks(recipe, false);
-                if (!blocksGetterList.isEmpty()) {
-                    blocksToRender.computeIfAbsent(machine.getMachine().getId(), k -> new ArrayList<>()).addAll(
-                            blocksGetterList.stream()
-                                    .map(blocks -> new StructureRenderer(time, blocks))
-                                    .toList());
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
-     * 清除当前所有方块与结构需求的渲染
-     */
-    public static void clearRequirementRenderer() {
-        boxToRender.clear();
-        blocksToRender.clear();
-        recipeToRender.clear();
-    }
-
-    /**
-     * 让机器遍历待渲染配方列表，将可处理的配方结构需求加入结构渲染
-     * @param tile CM方块实体
-     */
-    private void resolveRecipesToRender(CustomMachineTile tile) {
-        if (tile.getLevel() == null) return;
-        var it = recipeToRender.iterator();
-        while (it.hasNext()) {
-            var entry = it.next();
-            Optional<? extends Recipe<?>> recipe = tile.getLevel().getRecipeManager().byKey(entry.id);
-            if (recipe.isPresent() && recipe.get() instanceof CustomMachineRecipe cmrecipe) {
-                if (!tile.getMachine().getRecipeIds().contains(cmrecipe.getMachineId()))
-                    continue;
-                var blocksGetterList = BlockStructure.findStructureBlocks(cmrecipe, entry.virtual);
-                if (!blocksGetterList.isEmpty()) {
-                    blocksToRender.computeIfAbsent(tile.getId(), k -> new ArrayList<>()).addAll(
-                            blocksGetterList.stream()
-                                    .map(blocks -> new StructureRenderer(entry.time, blocks))
-                                    .toList());
-                }
-            }
-            it.remove();
+    public static void addGeneralStructureRenderById(ResourceLocation machineId, String structureId, int time) {
+        Map<String, StructureRenderer> map = generalStructureToRender.computeIfAbsent(machineId, k -> new HashMap<>());
+        StructureRenderer renderer = map.get(structureId);
+        if (renderer == null) {
+            map.put(structureId, new StructureRenderer(time));
+        } else {
+            renderer.setTime(time);
         }
     }
 }
-
-

@@ -4,6 +4,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import fr.frinn.custommachinery.CustomMachinery;
 import fr.frinn.custommachinery.client.RenderTypes;
+import fr.frinn.custommachinery.common.init.CustomMachineTile;
+import fr.frinn.custommachinery.common.init.Registration;
 import fr.frinn.custommachinery.common.integration.config.CMConfig;
 import fr.frinn.custommachinery.common.util.CycleTimer;
 import fr.frinn.custommachinery.common.util.PartialBlockState;
@@ -26,11 +28,11 @@ import java.util.function.Function;
 
 public class StructureRenderer {
 
-    private final int time;
-    private final long start;
-    private final Function<Direction, Map<BlockPos, IIngredient<PartialBlockState>>> blocksGetter;
+    private int time;
+    private long start;
+    private boolean forever;
+    private Function<Direction, Map<BlockPos, IIngredient<PartialBlockState>>> blocksGetter;
     private final CycleTimer timer;
-    private final boolean forever;
 
     private final float[] translucent_color = new float[]{1, 1, 1, 0.8f};
 
@@ -42,8 +44,26 @@ public class StructureRenderer {
         this.forever = time <= 0;
     }
 
+    public StructureRenderer(int time) {
+        this(time, null);
+    }
+
+    public void initForGeneralStructure(CustomMachineTile tile, String id) {
+        if (blocksGetter == null) {
+            var handler = tile.getComponentManager().getComponentHandler(Registration.GENERAL_STRUCTURE_COMPONENT.get());
+            if (handler.isEmpty())
+                return;
+            var component = handler.get().getComponentForID(id);
+            if (component.isEmpty())
+                return;
+            blocksGetter = component.get().getStructure()::getBlocks;
+        }
+    }
 
     public void render(PoseStack matrix, MultiBufferSource buffer, Direction direction, Level world, BlockPos machinePos) {
+        if (blocksGetter == null)
+            return;
+
         Map<BlockPos, IIngredient<PartialBlockState>> blocks = this.blocksGetter.apply(direction);
         Map<BlockPos, PartialBlockState> missing = new HashMap<>();
         List<BlockPos> nope = new LinkedList<>();
@@ -107,5 +127,11 @@ public class StructureRenderer {
 
     public boolean shouldRender() {
         return this.forever || System.currentTimeMillis() < this.start + this.time;
+    }
+
+    public void setTime(int time) {
+        this.time = time;
+        this.start = System.currentTimeMillis();
+        this.forever = time <= 0;
     }
 }

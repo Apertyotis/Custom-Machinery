@@ -19,6 +19,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.Arrays;
 import java.util.Optional;
@@ -61,6 +62,14 @@ public class DefaultCodecs {
         else
             return DataResult.error(() -> Arrays.toString(arr) + " is not an array of 3 elements");
     }, pos -> DoubleStream.of(pos.getX(), pos.getY(), pos.getZ()), "Pos");
+
+    public static final NamedCodec<Vec3> VEC3 = NamedCodec.DOUBLE_STREAM.comapFlatMap(stream -> {
+        double[] arr = stream.toArray();
+        if (arr.length == 3)
+            return DataResult.success(new Vec3(arr[0], arr[1], arr[2]));
+        else
+            return DataResult.error(() -> Arrays.toString(arr) + " is not an array of 3 elements");
+    }, pos -> DoubleStream.of(pos.x, pos.y, pos.z), "Vec3");
 
     public static final NamedCodec<AABB> BOX = NamedCodec.DOUBLE_STREAM.comapFlatMap(stream -> {
         double[] arr = stream.toArray();

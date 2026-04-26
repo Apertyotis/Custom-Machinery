@@ -108,6 +108,15 @@ public class Utils {
         };
     }
 
+    public static Vec3 rotateVec3(Vec3 pos, Direction to) {
+        return switch (to) {
+            case EAST -> new Vec3(pos.z, pos.y, -pos.x);
+            case NORTH -> new Vec3(-pos.x, pos.y, -pos.z);
+            case WEST -> new Vec3(-pos.z, pos.y, pos.x);
+            default -> pos;
+        };
+    }
+
     public static boolean isResourceNameValid(String resourceLocation) {
         try {
             ResourceLocation location = new ResourceLocation(resourceLocation);

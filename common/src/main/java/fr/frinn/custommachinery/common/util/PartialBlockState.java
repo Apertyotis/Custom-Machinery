@@ -72,6 +72,8 @@ public class PartialBlockState implements Predicate<BlockInWorld> {
     private final List<Property<?>> properties;
     private final CompoundTag nbt;
 
+    private Integer cachedHashCode;
+
     public PartialBlockState(BlockState blockState, List<Property<?>> properties, CompoundTag nbt) {
         this.blockState = blockState;
         this.properties = properties;
@@ -192,7 +194,8 @@ public class PartialBlockState implements Predicate<BlockInWorld> {
     @Override
     public boolean test(BlockInWorld cachedBlockInfo) {
         BlockState blockstate = cachedBlockInfo.getState();
-        if (!blockstate.is(this.blockState.getBlock())) {
+        //noinspection ConstantValue
+        if (blockstate == null || !blockstate.is(this.blockState.getBlock())) {
             return false;
         } else {
             for(Property<?> property : this.properties) {
@@ -248,5 +251,18 @@ public class PartialBlockState implements Predicate<BlockInWorld> {
         if(!new HashSet<>(this.properties).containsAll(other.properties) || !new HashSet<>(other.properties).containsAll(this.properties))
             return false;
         return NbtUtils.compareNbt(this.nbt, other.nbt, true);
+    }
+
+    @Override
+    public int hashCode() {
+        if (cachedHashCode == null) {
+            int hash = this.blockState.getBlock().hashCode();
+            hash = 31 * hash + properties.hashCode();
+            if (nbt != null)
+                hash = 31 * hash + nbt.hashCode();
+            cachedHashCode = hash;
+        }
+
+        return cachedHashCode;
     }
 }

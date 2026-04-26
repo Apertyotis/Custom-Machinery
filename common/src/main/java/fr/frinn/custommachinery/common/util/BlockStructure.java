@@ -4,15 +4,11 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import fr.frinn.custommachinery.api.machine.MachineTile;
-import fr.frinn.custommachinery.api.requirement.IRequirement;
-import fr.frinn.custommachinery.common.crafting.machine.CustomMachineRecipe;
-import fr.frinn.custommachinery.common.requirement.StructureRequirement;
+import fr.frinn.custommachinery.common.init.Registration;
 import fr.frinn.custommachinery.common.util.ingredient.BlockIngredient;
 import fr.frinn.custommachinery.common.util.ingredient.IIngredient;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.crafting.Recipe;
 import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -22,7 +18,6 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.*;
-import java.util.function.Function;
 
 public class BlockStructure {
 
@@ -174,65 +169,43 @@ public class BlockStructure {
     }
 
     /**
-     * 给定配方搜索其结构需求
-     * @param recipe CM配方
-     * @param virtual 传入true时, 查找JEI显示的结构要求, 而非真实结构要求
-     * @return 返回配方结构方块提供器的列表，无结构需求时返回空列表
-     */
-    public static List<Function<Direction, Map<BlockPos, IIngredient<PartialBlockState>>>> findStructureBlocks(CustomMachineRecipe recipe, boolean virtual) {
-        List<Function<Direction, Map<BlockPos, IIngredient<PartialBlockState>>>> blocksGetterList = new ArrayList<>();
-        List<IRequirement<?>> requirements;
-        if (virtual) requirements = recipe.getJeiRequirements();
-        else requirements = recipe.getRequirements();
-        for (var requirement: requirements) {
-            if (requirement instanceof StructureRequirement structureRequirement) {
-                blocksGetterList.add(structureRequirement.getStructure()::getBlocks);
-            }
-        }
-        return blocksGetterList;
-    }
-
-    /**
-     * 传入机器方块实体和配方id，检查结构
+     * 传入机器方块实体和结构id，检查结构
      * @param be 机器方块实体
-     * @param id 配方id
-     * @param virtual 是否匹配JEI结构需求，而非真实结构需求
+     * @param id 结构 id
      * @return  返回匹配失败的方块列表，key为相对坐标，value为需要的方块，匹配成功返回空表
-     *          如果因为找不到配方、找不到结构需求等意外失败，返回值将是null
+     *          如果因为方块实体无效、找不到结构需求等意外失败，返回值将是null
      */
-    public static Map<BlockPos, PartialBlockState> checkStructureById(BlockEntity be, ResourceLocation id, boolean virtual) {
+    public static Map<BlockPos, PartialBlockState> checkGeneralStructureById(BlockEntity be, String id) {
         if (!(be instanceof MachineTile machine))
             return null;
         if (machine.getLevel() == null)
             return null;
 
-        // 获取配方
-        Optional<? extends Recipe<?>> recipe = machine.getLevel().getRecipeManager().byKey(id);
-        if (recipe.isEmpty() || !(recipe.get() instanceof CustomMachineRecipe cmrecipe))
+        // 获取结构
+        var handler = machine.getComponentManager().getComponentHandler(Registration.GENERAL_STRUCTURE_COMPONENT.get());
+        if (handler.isEmpty())
             return null;
-        if (!machine.getMachine().getRecipeIds().contains(cmrecipe.getMachineId()))
+        var component = handler.get().getComponentForID(id);
+        if (component.isEmpty())
             return null;
 
-        // 获取结构
         Map<BlockPos, PartialBlockState> error = new HashMap<>();
         BlockPos machinePos = machine.getBlockPos();
         BlockPos.MutableBlockPos worldPos = new BlockPos.MutableBlockPos();
-        var blocksGetterList = findStructureBlocks(cmrecipe, virtual);
-        if (blocksGetterList.isEmpty())
-            return null;
         Direction facing = machine.getBlockState().getValue(BlockStateProperties.HORIZONTAL_FACING);
-        for (var getter: blocksGetterList) {
-            for (var entry: getter.apply(facing).entrySet()) {
-                worldPos.set(
-                        machinePos.getX() + entry.getKey().getX(),
-                        machinePos.getY() + entry.getKey().getY(),
-                        machinePos.getZ() + entry.getKey().getZ());
-                BlockInWorld inWorld = new BlockInWorld(machine.getLevel(), worldPos, false);
-                if(!entry.getValue().getAll().isEmpty() &&
-                        entry.getValue().getAll().stream().noneMatch(state -> state.test(inWorld)))
-                    error.put(entry.getKey(), entry.getValue().getAll().get(0));
-            }
+
+        for (var entry: component.get().getStructure().getBlocks(facing).entrySet()) {
+            worldPos.set(
+                    machinePos.getX() + entry.getKey().getX(),
+                    machinePos.getY() + entry.getKey().getY(),
+                    machinePos.getZ() + entry.getKey().getZ());
+
+            BlockInWorld inWorld = new BlockInWorld(machine.getLevel(), worldPos, false);
+            if(!entry.getValue().getAll().isEmpty() &&
+                    entry.getValue().getAll().stream().noneMatch(state -> state.test(inWorld)))
+                error.put(entry.getKey(), entry.getValue().getAll().get(0));
         }
+
         return error;
     }
 }
