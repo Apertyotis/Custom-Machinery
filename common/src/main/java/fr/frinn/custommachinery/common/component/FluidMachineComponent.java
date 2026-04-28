@@ -24,9 +24,11 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.world.level.material.Fluid;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -151,8 +153,12 @@ public class FluidMachineComponent extends AbstractMachineComponent implements I
         // Check unique
         if (unique && fluidStack.isEmpty()) {
             List <FluidMachineComponent> list = getComponentHandler().getFluidMap().get(stack.getFluid());
-            if (list != null && list.stream().anyMatch(component -> component.fluidStack.isTagEqual(stack)))
-                return false;
+            if (list != null) {
+                for (var component: list) {
+                    if (component.fluidStack.isTagEqual(stack))
+                        return false;
+                }
+            }
         }
 
         // Check if same fluid
@@ -160,7 +166,35 @@ public class FluidMachineComponent extends AbstractMachineComponent implements I
             return false;
 
         // Check filter
-        return this.filter.stream().anyMatch(ingredient -> ingredient.test(stack.getFluid())) == this.whitelist;
+        for (var ingredient: filter) {
+            if (ingredient.test(stack.getFluid()))
+                return whitelist;
+        }
+        return !whitelist;
+    }
+
+    public boolean isFluidValid(Fluid fluid, @Nullable CompoundTag nbt) {
+        // Check unique
+        if (unique && fluidStack.isEmpty()) {
+            List <FluidMachineComponent> list = getComponentHandler().getFluidMap().get(fluid);
+            if (list != null) {
+                for (var component: list) {
+                    if (Objects.equals(component.fluidStack.getTag(), nbt))
+                        return false;
+                }
+            }
+        }
+
+        // Check if same fluid
+        if (!fluidStack.isEmpty() && !(fluidStack.getFluid() == fluid && (Objects.equals(fluidStack.getTag(), nbt))))
+            return false;
+
+        // Check filter
+        for (var ingredient: filter) {
+            if (ingredient.test(fluid))
+                return whitelist;
+        }
+        return !whitelist;
     }
 
     public long insert(Fluid fluid, long amount, CompoundTag nbt, boolean simulate) {

@@ -13,6 +13,7 @@ import fr.frinn.custommachinery.common.component.ItemMachineComponent;
 import fr.frinn.custommachinery.common.component.variant.item.FilterItemComponentVariant;
 import fr.frinn.custommachinery.common.init.Registration;
 import fr.frinn.custommachinery.common.util.Utils;
+import fr.frinn.custommachinery.common.util.ingredient.IIngredient;
 import fr.frinn.custommachinery.common.util.transfer.ICommonItemHandler;
 import fr.frinn.custommachinery.impl.component.AbstractComponentHandler;
 import net.minecraft.nbt.CompoundTag;
@@ -26,9 +27,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 
 public class ItemComponentHandler extends AbstractComponentHandler<ItemMachineComponent> implements ISerializableComponent, ITickableComponent, ISyncableStuff, IDumpComponent {
 
@@ -120,36 +119,53 @@ public class ItemComponentHandler extends AbstractComponentHandler<ItemMachineCo
     private final List<ItemMachineComponent> outputs = new ArrayList<>();
 
     public int getItemAmount(String slot, Item item, @Nullable CompoundTag nbt) {
-        Predicate<ItemMachineComponent> nbtPredicate = component -> nbt == null || nbt.isEmpty() || (component.getItemStack().getTag() != null && Utils.testNBT(component.getItemStack().getTag(), nbt));
-        Predicate<ItemMachineComponent> slotPredicate = component -> slot.isEmpty() || component.getId().equals(slot);
-        return this.inputs.stream().filter(component -> component.getItemStack().getItem() == item && nbtPredicate.test(component) && slotPredicate.test(component))
-                .mapToInt(component -> component.getItemStack().getCount())
-                .sum();
+        int count = 0;
+        for (var component: this.inputs) {
+            if (testSlotItem(component, slot, item, nbt))
+                count += component.getItemStack().getCount();
+        }
+        return count;
     }
 
-    public int getDurabilityAmount(String slot, Item item, @Nullable CompoundTag nbt) {
-        Predicate<ItemMachineComponent> nbtPredicate = component -> nbt == null || nbt.isEmpty() || (component.getItemStack().getTag() != null && Utils.testNBT(component.getItemStack().getTag(), nbt));
-        Predicate<ItemMachineComponent> slotPredicate = component -> slot.isEmpty() || component.getId().equals(slot);
-        return this.inputs.stream().filter(component -> component.getItemStack().getItem() == item && component.getItemStack().isDamageableItem() && nbtPredicate.test(component) && slotPredicate.test(component))
-                .mapToInt(component -> component.getItemStack().getMaxDamage() - component.getItemStack().getDamageValue())
-                .sum();
+    public int getItemAmount(String slot, IIngredient<Item> ingredients, @Nullable CompoundTag nbt) {
+        List<Item> items = ingredients.getAll();
+        int count = 0;
+        for (var component: this.inputs) {
+            if (testSlotItems(component, slot, items, nbt))
+                count += component.getItemStack().getCount();
+        }
+        return count;
+    }
+
+    public int getDurabilityAmount(String slot, IIngredient<Item> ingredients, @Nullable CompoundTag nbt) {
+        List<Item> items = ingredients.getAll();
+        int count = 0;
+        for (var component: this.inputs) {
+            ItemStack stack = component.getItemStack();
+            if (!stack.isDamageableItem())
+                continue;
+            if (testSlotItems(component, slot, items, nbt))
+                count += stack.getMaxDamage() - stack.getDamageValue();
+        }
+        return count;
     }
 
     public int getSpaceForItem(String slot, Item item, @Nullable CompoundTag nbt) {
-        int maxStackSize = Utils.makeItemStack(item, 1, nbt).getMaxStackSize();
-        return this.outputs.stream().filter(component -> canPlaceOutput(component, slot, item, nbt))
-                .mapToInt(component -> {
-                    if(component.getItemStack().isEmpty())
-                        return Math.min(component.getCapacity(), maxStackSize);
-                    else
-                        return Math.min(component.getCapacity() - component.getItemStack().getCount(), maxStackSize - component.getItemStack().getCount());
-                })
-                .sum();
+        ItemStack toInsert = Utils.makeItemStack(item, 1, nbt);
+        int maxStackSize = toInsert.getMaxStackSize();
+        int count = 0;
+        for (var component: this.outputs) {
+            if (!canPlaceOutput(component, slot, toInsert))
+                continue;
+            if (component.getItemStack().isEmpty())
+                count += Math.min(component.getCapacity(), maxStackSize);
+            else
+                count += Math.min(component.getCapacity(), maxStackSize) - component.getItemStack().getCount();
+        }
+        return count;
     }
 
-    private boolean canPlaceOutput(ItemMachineComponent component, @Nullable String slot, Item item, @Nullable CompoundTag nbt) {
-        ItemStack stack = Utils.makeItemStack(item, 1, nbt);
-
+    private boolean canPlaceOutput(ItemMachineComponent component, @Nullable String slot, ItemStack stack) {
         //Not the specified slot
         if(slot != null && !slot.isEmpty() && !component.getId().equals(slot))
             return false;
@@ -163,7 +179,7 @@ public class ItemComponentHandler extends AbstractComponentHandler<ItemMachineCo
             return true;
 
         //If the item present in the slot in not the same item, they won't stack
-        if(component.getItemStack().getItem() != item)
+        if(component.getItemStack().getItem() != stack.getItem())
             return false;
 
         //Check if the stack present in the slot can accept more items
@@ -174,61 +190,112 @@ public class ItemComponentHandler extends AbstractComponentHandler<ItemMachineCo
         return ItemStack.isSameItemSameTags(component.getItemStack(), stack);
     }
 
-    public int getSpaceForDurability(String slot, Item item, @Nullable CompoundTag nbt) {
-        Predicate<ItemMachineComponent> nbtPredicate = component -> nbt == null || nbt.isEmpty() || (component.getItemStack().getTag() != null && Utils.testNBT(component.getItemStack().getTag(), nbt));
-        Predicate<ItemMachineComponent> slotPredicate = component -> slot.isEmpty() || component.getId().equals(slot);
-        return this.inputs.stream().filter(component -> component.getItemStack().getItem() == item && component.getItemStack().isDamageableItem() && nbtPredicate.test(component) && slotPredicate.test(component))
-                .mapToInt(component -> component.getItemStack().getDamageValue())
-                .sum();
+    public int getSpaceForDurability(String slot, IIngredient<Item> ingredients, @Nullable CompoundTag nbt) {
+        List<Item> items = ingredients.getAll();
+        int count = 0;
+        for (var component: this.inputs) {
+            ItemStack stack = component.getItemStack();
+            if (!stack.isDamageableItem())
+                continue;
+            if (testSlotItems(component, slot, items, nbt))
+                count += stack.getDamageValue();
+        }
+        return count;
     }
 
     public void removeFromInputs(String slot, Item item, int amount, @Nullable CompoundTag nbt) {
-        AtomicInteger toRemove = new AtomicInteger(amount);
-        Predicate<ItemMachineComponent> nbtPredicate = component -> nbt == null || nbt.isEmpty() || (component.getItemStack().getTag() != null && Utils.testNBT(component.getItemStack().getTag(), nbt));
-        Predicate<ItemMachineComponent> slotPredicate = component -> slot.isEmpty() || component.getId().equals(slot);
-        this.inputs.stream().filter(component -> component.getItemStack().getItem() == item && nbtPredicate.test(component) && slotPredicate.test(component)).forEach(component -> {
-            int maxExtract = Math.min(component.getItemStack().getCount(), toRemove.get());
-            toRemove.addAndGet(-maxExtract);
-            component.extract(maxExtract, false, true);
-        });
+        for (var component: this.inputs) {
+            if (amount <= 0)
+                break;
+            if (testSlotItem(component, slot, item, nbt))
+                amount -= component.extract(amount, false, false).getCount();
+        }
         getManager().markDirty();
     }
 
-    public void removeDurability(String slot, Item item, int amount, @Nullable CompoundTag nbt, boolean canBreak) {
-        AtomicInteger toRemove = new AtomicInteger(amount);
-        Predicate<ItemMachineComponent> nbtPredicate = component -> nbt == null || nbt.isEmpty() || (component.getItemStack().getTag() != null && Utils.testNBT(component.getItemStack().getTag(), nbt));
-        Predicate<ItemMachineComponent> slotPredicate = component -> slot.isEmpty() || component.getId().equals(slot);
-        this.inputs.stream().filter(component -> component.getItemStack().getItem() == item && component.getItemStack().isDamageableItem() && nbtPredicate.test(component) && slotPredicate.test(component)).forEach(component -> {
-            int maxRemove = Math.min(component.getItemStack().getMaxDamage() - component.getItemStack().getDamageValue(), toRemove.get());
-            toRemove.addAndGet(-maxRemove);
+    public void removeFromInputs(String slot, IIngredient<Item> ingredients, int amount, @Nullable CompoundTag nbt) {
+        List<Item> items = ingredients.getAll();
+        for (var component: this.inputs) {
+            if (amount <= 0)
+                break;
+            if (testSlotItems(component, slot, items, nbt))
+                amount -= component.extract(amount, false, false).getCount();
+        }
+        getManager().markDirty();
+    }
+
+    public void removeDurability(String slot, IIngredient<Item> ingredients, int amount, @Nullable CompoundTag nbt, boolean canBreak) {
+        List<Item> items = ingredients.getAll();
+        for (var component: this.inputs) {
+            if (amount <= 0)
+                break;
             ItemStack stack = component.getItemStack();
-            if(stack.hurt(maxRemove, rand, null) && canBreak) {
-                stack.shrink(1);
-                stack.setDamageValue(0);
+            if (!stack.isDamageableItem())
+                continue;
+            if (testSlotItems(component, slot, items, nbt)) {
+                int toRemove = Math.min(stack.getMaxDamage() - stack.getDamageValue(), amount);
+                amount -= toRemove;
+                if (stack.hurt(toRemove, rand, null) && canBreak) {
+                    stack.shrink(1);
+                    stack.setDamageValue(0);
+                }
             }
-        });
+        }
         getManager().markDirty();
     }
 
     public void addToOutputs(String slot, Item item, int amount, @Nullable CompoundTag nbt) {
-        AtomicInteger toAdd = new AtomicInteger(amount);
-        this.outputs.stream().filter(component -> canPlaceOutput(component, slot, item, nbt)).forEach(component -> {
-            int maxInsert = Math.min(component.insert(item, amount, nbt, true, true), toAdd.get());
-            toAdd.addAndGet(-maxInsert);
-            component.insert(item, maxInsert, nbt, false, true);
-        });
+        ItemStack toInsert = Utils.makeItemStack(item, amount, nbt);
+        for (var component: outputs) {
+            if (toInsert.isEmpty())
+                return;
+            if (canPlaceOutput(component, slot, toInsert)) {
+                int inserted = component.insert(toInsert, false, true);
+                toInsert.shrink(inserted);
+            }
+        }
+    }
+
+    public void repairItem(String slot, IIngredient<Item> ingredients, int amount, @Nullable CompoundTag nbt) {
+        List<Item> items = ingredients.getAll();
+        for (var component: this.inputs) {
+            if (amount <= 0)
+                break;
+            ItemStack stack = component.getItemStack();
+            if (!stack.isDamageableItem())
+                continue;
+            if (testSlotItems(component, slot, items, nbt)) {
+                int toRepair = Math.min(stack.getDamageValue(), amount);
+                amount -= toRepair;
+                stack.setDamageValue(stack.getDamageValue() - toRepair);
+            }
+        }
         getManager().markDirty();
     }
 
-    public void repairItem(String slot, Item item, int amount, @Nullable CompoundTag nbt) {
-        AtomicInteger toRepair = new AtomicInteger(amount);
-        Predicate<ItemMachineComponent> nbtPredicate = component -> nbt == null || nbt.isEmpty() || (component.getItemStack().getTag() != null && Utils.testNBT(component.getItemStack().getTag(), nbt));
-        Predicate<ItemMachineComponent> slotPredicate = component -> slot.isEmpty() || component.getId().equals(slot);
-        this.inputs.stream().filter(component -> component.getItemStack().getItem() == item && component.getItemStack().isDamageableItem() && nbtPredicate.test(component) && slotPredicate.test(component)).forEach(component -> {
-            int maxRepair = Math.min(component.getItemStack().getDamageValue(), toRepair.get());
-            toRepair.addAndGet(-maxRepair);
-            component.getItemStack().setDamageValue(component.getItemStack().getDamageValue() - maxRepair);
-        });
-        getManager().markDirty();
+    private boolean testSlotItem(ItemMachineComponent component, String slot, Item item, @Nullable CompoundTag nbt) {
+        if (!slot.isEmpty() && !component.getId().equals(slot))
+            return false;
+
+        ItemStack stack = component.getItemStack();
+        if (!stack.is(item))
+            return false;
+
+        CompoundTag beTested = stack.getTag();
+        return (nbt == null || nbt.isEmpty() || (beTested != null && Utils.testNBT(beTested, nbt)));
+    }
+
+    private boolean testSlotItems(ItemMachineComponent component, String slot, List<Item> items, @Nullable CompoundTag nbt) {
+        if (!slot.isEmpty() && !component.getId().equals(slot))
+            return false;
+
+        ItemStack stack = component.getItemStack();
+        for (Item item: items) {
+            if (stack.is(item)) {
+                CompoundTag beTested = stack.getTag();
+                return nbt == null || nbt.isEmpty() || (beTested != null && Utils.testNBT(beTested, nbt));
+            }
+        }
+        return false;
     }
 }

@@ -9,6 +9,8 @@ import fr.frinn.custommachinery.common.util.PartialBlockState;
 import fr.frinn.custommachinery.common.util.Utils;
 import fr.frinn.custommachinery.common.util.ingredient.IIngredient;
 import fr.frinn.custommachinery.impl.component.AbstractMachineComponent;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.level.Level;
@@ -71,16 +73,9 @@ public class BlockMachineComponent extends AbstractMachineComponent {
             if (this.timestamp != timestamp) {
                 this.timestamp = timestamp;
                 cachedResultInWorld.clear();
-                boolean result = testInner(block);
-                cachedResultInWorld.put(pos, result);
-                return result;
-            } else if (!cachedResultInWorld.containsKey(pos)) {
-                boolean result = testInner(block);
-                cachedResultInWorld.put(pos, result);
-                return result;
-            } else {
-                return cachedResultInWorld.get(pos);
             }
+
+            return cachedResultInWorld.computeIfAbsent(pos, p -> testInner(block));
         }
 
         private boolean testInner(BlockInWorld block) {
@@ -100,29 +95,24 @@ public class BlockMachineComponent extends AbstractMachineComponent {
     }
 
     private static class BlockCache {
-        private static final Map<BlockPos, BlockInWorld> cachedBlock = new HashMap<>();
+        private final Long2ObjectMap<BlockInWorld> cachedBlock = new Long2ObjectOpenHashMap<>();
         private static long timestamp = -1;
 
-        static BlockInWorld getCachedBlockInWorld(LevelReader level, BlockPos pos, long timestamp) {
+        BlockInWorld getCachedBlockInWorld(LevelReader level, BlockPos pos, long timestamp) {
             if (BlockCache.timestamp != timestamp) {
                 BlockCache.timestamp = timestamp;
                 cachedBlock.clear();
-                BlockInWorld block = new BlockInWorld(level, pos, false);
-                cachedBlock.put(pos, block);
-                return block;
-            } else if (!cachedBlock.containsKey(pos)) {
-                BlockInWorld block = new BlockInWorld(level, pos, false);
-                cachedBlock.put(pos, block);
-                return block;
-            } else {
-                return cachedBlock.get(pos);
             }
+
+            return cachedBlock.computeIfAbsent(pos.asLong(), key -> new BlockInWorld(level, pos, false));
         }
 
-        static void invalidate() {
+        void invalidate() {
             cachedBlock.clear();
         }
     }
+
+    private final BlockCache blockCache = new BlockCache();
 
     public long getBlockAmount(BlockRequirement requirement, AABB box, boolean whitelist) {
         BlockEntity entity = getManager().getTile();
@@ -133,7 +123,7 @@ public class BlockMachineComponent extends AbstractMachineComponent {
         box = Utils.rotateBox(box, entity.getBlockState().getValue(BlockStateProperties.HORIZONTAL_FACING))
                 .move(entity.getBlockPos());
         return BlockPos.betweenClosedStream(box).filter(pos -> {
-            BlockInWorld block = BlockCache.getCachedBlockInWorld(level, pos, current);
+            BlockInWorld block = blockCache.getCachedBlockInWorld(level, pos, current);
             //noinspection ConstantValue
             if (block.getState() == null) {
                 return false;
@@ -150,7 +140,7 @@ public class BlockMachineComponent extends AbstractMachineComponent {
         box = Utils.rotateBox(box, entity.getBlockState().getValue(BlockStateProperties.HORIZONTAL_FACING))
                 .move(entity.getBlockPos());
         return BlockPos.betweenClosedStream(box).filter(pos -> {
-            BlockInWorld block = BlockCache.getCachedBlockInWorld(level, pos, current);
+            BlockInWorld block = blockCache.getCachedBlockInWorld(level, pos, current);
             //noinspection ConstantValue
             if (block.getState() == null) {
                 return false;
@@ -166,7 +156,7 @@ public class BlockMachineComponent extends AbstractMachineComponent {
         box = box.move(getManager().getTile().getBlockPos());
         if(BlockPos.betweenClosedStream(box).map(getManager().getLevel()::getBlockState).filter(state -> state.getBlock() == Blocks.AIR).count() < amount)
             return false;
-        BlockCache.invalidate();
+        blockCache.invalidate();
         AtomicInteger toPlace = new AtomicInteger(amount);
         BlockPos.betweenClosedStream(box).forEach(pos -> {
             if(toPlace.get() > 0 && getManager().getLevel().getBlockState(pos).getBlock() == Blocks.AIR) {
@@ -191,7 +181,7 @@ public class BlockMachineComponent extends AbstractMachineComponent {
         AtomicInteger toPlace = new AtomicInteger(amount);
         BlockPos.betweenClosedStream(box).forEach(pos -> {
             if(toPlace.get() > 0) {
-                BlockInWorld block = BlockCache.getCachedBlockInWorld(level, pos, current);
+                BlockInWorld block = blockCache.getCachedBlockInWorld(level, pos, current);
                 //noinspection ConstantValue
                 if (block.getState() == null)
                     return;
@@ -205,7 +195,7 @@ public class BlockMachineComponent extends AbstractMachineComponent {
         });
 
         filter.invalidate();
-        BlockCache.invalidate();
+        blockCache.invalidate();
         return true;
     }
 
@@ -223,7 +213,7 @@ public class BlockMachineComponent extends AbstractMachineComponent {
         AtomicInteger toBreak = new AtomicInteger(amount);
         BlockPos.betweenClosedStream(box).forEach(pos -> {
             if(toBreak.get() > 0) {
-                BlockInWorld block = BlockCache.getCachedBlockInWorld(level, pos, current);
+                BlockInWorld block = blockCache.getCachedBlockInWorld(level, pos, current);
                 if (filter.test(pos, block, current)) {
                     if(!block.getState().isAir())
                         level.destroyBlock(pos, drop);
@@ -233,7 +223,7 @@ public class BlockMachineComponent extends AbstractMachineComponent {
         });
 
         filter.invalidate();
-        BlockCache.invalidate();
+        blockCache.invalidate();
         return true;
     }
 

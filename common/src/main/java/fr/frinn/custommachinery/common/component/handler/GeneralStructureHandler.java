@@ -5,7 +5,6 @@ import fr.frinn.custommachinery.api.component.MachineComponentType;
 import fr.frinn.custommachinery.common.component.GeneralStructureComponent;
 import fr.frinn.custommachinery.common.init.Registration;
 import fr.frinn.custommachinery.impl.component.AbstractComponentHandler;
-import net.minecraft.util.Mth;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -61,13 +60,12 @@ public class GeneralStructureHandler extends AbstractComponentHandler<GeneralStr
         int cooldown;
         boolean valid;
 
-        static final int MIN_COOLDOWN = 20;
-        static final int MAX_COOLDOWN = 160;
+        static final int INIT_COOLDOWN = 20;
 
         StructureRecord(GeneralStructureComponent component) {
             this.component = component;
             timestamp = -1;
-            cooldown = 20;
+            cooldown = INIT_COOLDOWN;
             valid = false;
         }
 
@@ -81,9 +79,9 @@ public class GeneralStructureHandler extends AbstractComponentHandler<GeneralStr
             this.timestamp = current;
             this.valid = valid;
             if (valid) {
-                this.cooldown = Mth.clamp(cooldown * 2, MIN_COOLDOWN, MAX_COOLDOWN);
+                this.cooldown = Math.min(Math.max(cooldown * 2, INIT_COOLDOWN), component.getCooldown());
             } else {
-                this.cooldown = MIN_COOLDOWN;
+                this.cooldown = Math.min(INIT_COOLDOWN, component.getCooldown());
             }
         }
     }

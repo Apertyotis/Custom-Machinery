@@ -66,59 +66,44 @@ public class DurabilityRequirement extends AbstractChanceableRequirement<ItemCom
 
     @Override
     public boolean test(ItemComponentHandler component, ICraftingContext context) {
-        int amount = (int)context.getIntegerModifiedValue(this.amount, this, null);
+        int amount = (int) context.getIntegerModifiedValue(this.amount, this, null);
         if(getMode() == RequirementIOMode.INPUT)
-            return this.item.getAll().stream().mapToInt(item -> component.getDurabilityAmount(this.slot, item, this.nbt)).sum() >= amount;
+            return component.getDurabilityAmount(slot, item, nbt) >= amount;
         else
-            return this.item.getAll().stream().mapToInt(item -> component.getSpaceForDurability(this.slot, item, this.nbt)).sum() >= amount;
+            return component.getSpaceForDurability(slot, item, nbt) >= amount;
     }
 
     @Override
     public CraftingResult processStart(ItemComponentHandler component, ICraftingContext context) {
-        int amount = (int)context.getIntegerModifiedValue(this.amount, this, null);
-        if(getMode() == RequirementIOMode.INPUT) {
-            int maxRemove = this.item.getAll().stream().mapToInt(item -> component.getDurabilityAmount(this.slot, item, this.nbt)).sum();
-            if(maxRemove >= amount) {
-                int toDamage = amount;
-                for (Item item : this.item.getAll()) {
-                    int canDamage = component.getDurabilityAmount(this.slot, item, this.nbt);
-                    if(canDamage > 0) {
-                        canDamage = Math.min(canDamage, toDamage);
-                        component.removeDurability(this.slot, item, canDamage, this.nbt, this.canBreak);
-                        toDamage -= canDamage;
-                        if(toDamage == 0)
-                            return CraftingResult.success();
-                    }
-                }
+        int amount = (int) context.getIntegerModifiedValue(this.amount, this, null);
+        if (getMode() == RequirementIOMode.INPUT) {
+            int maxRemove = component.getDurabilityAmount(slot, item, nbt);
+            if (maxRemove >= amount) {
+                component.removeDurability(slot, item, amount, nbt, canBreak);
+                return CraftingResult.success();
+            } else {
+                return CraftingResult.error(Component.translatable("custommachinery.requirements.durability.error.input", this.item, amount, maxRemove));
             }
-            return CraftingResult.error(Component.translatable("custommachinery.requirements.durability.error.input", this.item, amount, maxRemove));
         }
         return CraftingResult.pass();
     }
 
     @Override
     public CraftingResult processEnd(ItemComponentHandler component, ICraftingContext context) {
-        int amount = (int)context.getIntegerModifiedValue(this.amount, this, null);
-        if(getMode() == RequirementIOMode.OUTPUT) {
-            int maxRepair = this.item.getAll().stream().mapToInt(item -> component.getSpaceForDurability(this.slot, item, this.nbt)).sum();
-            if(maxRepair >= amount) {
-                int toRepair = amount;
-                for (Item item : this.item.getAll()) {
-                    int canRepair = component.getSpaceForDurability(this.slot, item, this.nbt);
-                    if(canRepair > 0) {
-                        canRepair = Math.min(canRepair, toRepair);
-                        component.repairItem(this.slot, item, canRepair, this.nbt);
-                        toRepair -= canRepair;
-                        if(toRepair == 0)
-                            return CraftingResult.success();
-                    }
-                }
+        int amount = (int) context.getIntegerModifiedValue(this.amount, this, null);
+        if (getMode() == RequirementIOMode.OUTPUT) {
+            int maxRepair = component.getSpaceForDurability(slot, item, nbt);
+            if (maxRepair >= amount) {
+                component.repairItem(slot, item, amount, nbt);
+                return CraftingResult.success();
+            } else {
+                return CraftingResult.error(Component.translatable("custommachinery.requirements.durability.error.output", this.item, amount, maxRepair));
             }
-            return CraftingResult.error(Component.translatable("custommachinery.requirements.durability.error.output", this.item, amount, maxRepair));
         }
         return CraftingResult.pass();
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     @Override
     public MachineComponentType getComponentType() {
         return Registration.ITEM_MACHINE_COMPONENT.get();

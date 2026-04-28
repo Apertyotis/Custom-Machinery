@@ -17,12 +17,16 @@ import java.util.Map;
 
 public class GeneralStructureComponent extends AbstractMachineComponent {
 
+    public static final int DEFAULT_MAX_COOLDOWN = 160;
+
     private final String id;
+    private final int cooldown;
     private final BlockStructure structure;
 
     public GeneralStructureComponent(IMachineComponentManager manager, Template template) {
         super(manager, ComponentIOMode.NONE);
         id = template.id;
+        cooldown = template.cooldown;
 
         BlockStructure.Builder builder = BlockStructure.Builder.start();
         for(List<String> levels : template.pattern)
@@ -41,6 +45,10 @@ public class GeneralStructureComponent extends AbstractMachineComponent {
         return id;
     }
 
+    public int getCooldown() {
+        return cooldown;
+    }
+
     public BlockStructure getStructure() {
         return structure;
     }
@@ -48,14 +56,16 @@ public class GeneralStructureComponent extends AbstractMachineComponent {
     public record Template(
             String id,
             List<List<String>> pattern,
-            Map<Character, IIngredient<PartialBlockState>> keys
+            Map<Character, IIngredient<PartialBlockState>> keys,
+            int cooldown
     ) implements IMachineComponentTemplate<GeneralStructureComponent> {
 
         public static final NamedCodec<GeneralStructureComponent.Template> CODEC = NamedCodec.record(generalStructureComponentTemplate ->
                         generalStructureComponentTemplate.group(
                                 NamedCodec.STRING.fieldOf("id").forGetter(template -> template.id),
                                 NamedCodec.STRING.listOf().listOf().fieldOf("pattern").forGetter(template -> template.pattern),
-                                NamedCodec.unboundedMap(DefaultCodecs.CHARACTER, IIngredient.BLOCK, "Map<Character, Block>").fieldOf("keys").forGetter(requirement -> requirement.keys)
+                                NamedCodec.unboundedMap(DefaultCodecs.CHARACTER, IIngredient.BLOCK, "Map<Character, Block>").fieldOf("keys").forGetter(requirement -> requirement.keys),
+                                NamedCodec.INT.optionalFieldOf("cooldown", DEFAULT_MAX_COOLDOWN).forGetter(template -> template.cooldown)
                         ).apply(generalStructureComponentTemplate, GeneralStructureComponent.Template::new),
                 "General structure component"
         );

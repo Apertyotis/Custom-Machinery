@@ -1,7 +1,6 @@
 package fr.frinn.custommachinery.forge.transfer;
 
 import fr.frinn.custommachinery.common.component.ItemMachineComponent;
-import fr.frinn.custommachinery.common.util.Utils;
 import net.minecraft.core.Direction;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
@@ -43,13 +42,13 @@ public class ItemSlot implements IItemHandler {
         if(!this.component.isItemValid(stack))
             return stack;
 
-        int inserted = this.component.insert(stack.getItem(), stack.getCount(), stack.getTag(), simulate);
+        int inserted = this.component.insert(stack.copy(), simulate);
         if(inserted == 0)
             return stack;
         else if(inserted == stack.getCount())
             return ItemStack.EMPTY;
         else
-            return Utils.makeItemStack(stack.getItem(), stack.getCount() - inserted, stack.getTag());
+            return stack.copyWithCount(stack.getCount() - inserted);
     }
 
     @NotNull

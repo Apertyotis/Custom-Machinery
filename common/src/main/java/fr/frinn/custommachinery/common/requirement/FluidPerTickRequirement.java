@@ -67,6 +67,7 @@ public class FluidPerTickRequirement extends AbstractChanceableRequirement<Fluid
         return Registration.FLUID_PER_TICK_REQUIREMENT.get();
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     @Override
     public MachineComponentType getComponentType() {
         return Registration.FLUID_MACHINE_COMPONENT.get();
@@ -75,12 +76,14 @@ public class FluidPerTickRequirement extends AbstractChanceableRequirement<Fluid
     @Override
     public boolean test(FluidComponentHandler component, ICraftingContext context) {
         long amount = context.getPerTickIntegerModifiedValue(this.amount, this, null);
-        if(getMode() == RequirementIOMode.INPUT)
-            return this.fluid.getAll().stream().mapToLong(fluid -> component.getFluidAmount(this.tank, fluid, this.nbt)).sum() >= amount;
+        if (getMode() == RequirementIOMode.INPUT)
+            return component.getFluidAmount(tank, fluid, nbt) >= amount;
         else {
-            if(this.fluid.getAll().get(0) != null)
-                return component.getSpaceForFluid(this.tank, this.fluid.getAll().get(0), this.nbt) >= amount;
-            throw new IllegalStateException("Can't use output fluid per tick requirement with fluid tag");
+            List<Fluid> fluids = fluid.getAll();
+            if(!fluids.isEmpty() && fluids.get(0) != null)
+                return component.getSpaceForFluid(tank, fluids.get(0), nbt) >= amount;
+            else
+                throw new IllegalStateException("Can't use output fluid per tick requirement with fluid tag");
         }
     }
 
@@ -92,32 +95,26 @@ public class FluidPerTickRequirement extends AbstractChanceableRequirement<Fluid
     @Override
     public CraftingResult processTick(FluidComponentHandler component, ICraftingContext context) {
         long amount = context.getPerTickIntegerModifiedValue(this.amount, this, null);
-        if(getMode() == RequirementIOMode.INPUT) {
-            long maxDrain = this.fluid.getAll().stream().mapToLong(fluid -> component.getFluidAmount(this.tank, fluid, this.nbt)).sum();
-            if(maxDrain >= amount) {
-                long toDrain = amount;
-                for (Fluid fluid : this.fluid.getAll()) {
-                    long canDrain = component.getFluidAmount(this.tank, fluid, this.nbt);
-                    if(canDrain > 0) {
-                        canDrain = Math.min(canDrain, toDrain);
-                        component.removeFromInputs(this.tank, FluidStack.create(fluid, canDrain, this.nbt));
-                        toDrain -= canDrain;
-                        if(toDrain == 0)
-                            return CraftingResult.success();
-                    }
-                }
+        if (getMode() == RequirementIOMode.INPUT) {
+            long maxDrain = component.getFluidAmount(tank, fluid, nbt);
+            if (maxDrain >= amount) {
+                component.removeFromInputs(tank, fluid, amount, nbt);
+                return CraftingResult.success();
+            } else {
+                return CraftingResult.error(Component.translatable("custommachinery.requirements.fluid.error.input", this.fluid, amount, maxDrain));
             }
-            return CraftingResult.error(Component.translatable("custommachinery.requirements.fluid.error.input", this.fluid, amount, maxDrain));
         } else {
-            if(this.fluid.getAll().get(0) != null) {
-                Fluid fluid = this.fluid.getAll().get(0);
-                FluidStack stack = FluidStack.create(fluid, amount, this.nbt);
-                long canInsert = component.getSpaceForFluid(this.tank, fluid, this.nbt);
-                if(canInsert >= amount) {
-                    component.addToOutputs(this.tank, stack);
+            List<Fluid> fluids = fluid.getAll();
+            if (!fluids.isEmpty() && fluids.get(0) != null) {
+                Fluid fluid = fluids.get(0);
+                FluidStack stack = FluidStack.create(fluid, amount, nbt);
+                long canInsert = component.getSpaceForFluid(tank, fluid, nbt);
+                if (canInsert >= amount) {
+                    component.addToOutputs(tank, stack);
                     return CraftingResult.success();
+                } else {
+                    return CraftingResult.error(Component.translatable("custommachinery.requirements.fluidpertick.error.output", amount, FluidStackHooks.getName(FluidStack.create(fluid, this.amount))));
                 }
-                return CraftingResult.error(Component.translatable("custommachinery.requirements.fluidpertick.error.output", amount, FluidStackHooks.getName(FluidStack.create(fluid, this.amount))));
             } else throw new IllegalStateException("Can't use fluid per tick requirement with fluid tag");
         }
     }

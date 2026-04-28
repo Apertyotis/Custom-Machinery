@@ -73,35 +73,28 @@ public class ItemRequirement extends AbstractChanceableRequirement<ItemComponent
 
     @Override
     public boolean test(ItemComponentHandler component, ICraftingContext context) {
-        int amount = (int)context.getIntegerModifiedValue(this.amount, this, null);
+        int amount = (int) context.getIntegerModifiedValue(this.amount, this, null);
         if(getMode() == RequirementIOMode.INPUT) {
-            return this.item.getAll().stream().mapToInt(item -> component.getItemAmount(this.slot, item, this.nbt)).sum() >= amount;
+            return component.getItemAmount(slot, item, nbt) >= amount;
         } else {
-            if(this.item.getAll().get(0) != null)
-                return component.getSpaceForItem(this.slot, this.item.getAll().get(0), this.nbt) >= amount;
+            List<Item> items = item.getAll();
+            if(!items.isEmpty() && items.get(0) != null)
+                return component.getSpaceForItem(slot, items.get(0), nbt) >= amount;
             else throw new IllegalStateException("Can't use output item requirement with item tag");
         }
     }
 
     @Override
     public CraftingResult processStart(ItemComponentHandler component, ICraftingContext context) {
-        int amount = (int)context.getIntegerModifiedValue(this.amount, this, null);
+        int amount = (int) context.getIntegerModifiedValue(this.amount, this, null);
         if(getMode() == RequirementIOMode.INPUT) {
-            int maxExtract = this.item.getAll().stream().mapToInt(item -> component.getItemAmount(this.slot, item, this.nbt)).sum();
+            int maxExtract = component.getItemAmount(slot, item, nbt);
             if(maxExtract >= amount) {
-                int toExtract = amount;
-                for (Item item : this.item.getAll()) {
-                    int canExtract = component.getItemAmount(this.slot, item, this.nbt);
-                    if(canExtract > 0) {
-                        canExtract = Math.min(canExtract, toExtract);
-                        component.removeFromInputs(this.slot, item, canExtract, this.nbt);
-                        toExtract -= canExtract;
-                        if(toExtract == 0)
-                            return CraftingResult.success();
-                    }
-                }
+                component.removeFromInputs(slot, item, amount, nbt);
+                return CraftingResult.success();
+            } else {
+                return CraftingResult.error(Component.translatable("custommachinery.requirements.item.error.input", this.item.toString(), amount, maxExtract));
             }
-            return CraftingResult.error(Component.translatable("custommachinery.requirements.item.error.input", this.item.toString(), amount, maxExtract));
         }
         return CraftingResult.pass();
     }
@@ -110,8 +103,9 @@ public class ItemRequirement extends AbstractChanceableRequirement<ItemComponent
     public CraftingResult processEnd(ItemComponentHandler component, ICraftingContext context) {
         int amount = (int)context.getIntegerModifiedValue(this.amount, this, null);
         if(getMode() == RequirementIOMode.OUTPUT) {
-            if(this.item.getAll().get(0) != null) {
-                Item item = this.item.getAll().get(0);
+            List<Item> items = this.item.getAll();
+            if(!items.isEmpty() && items.get(0) != null) {
+                Item item = items.get(0);
                 int canInsert = component.getSpaceForItem(this.slot, item, this.nbt);
                 if(canInsert >= amount) {
                     component.addToOutputs(this.slot, item, amount, this.nbt);

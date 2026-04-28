@@ -29,7 +29,6 @@ import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
@@ -114,15 +113,25 @@ public class ItemMachineComponent extends AbstractMachineComponent implements IS
     }
 
     public int insert(Item item, int amount, @Nullable CompoundTag nbt, boolean simulate, boolean byPassLimit) {
-        if(amount <= 0 || item == Items.AIR || !isItemValid(Utils.makeItemStack(item, amount, nbt)))
+        ItemStack toInsert = Utils.makeItemStack(item, amount, nbt);
+        return insert(toInsert, simulate, byPassLimit);
+    }
+
+    public int insert(ItemStack toInsert, boolean simulate) {
+        return insert(toInsert, simulate, false);
+    }
+
+    public int insert(ItemStack toInsert, boolean simulate, boolean byPassLimit) {
+        if (toInsert.isEmpty() || !isItemValid(toInsert))
             return 0;
 
+        int amount = toInsert.getCount();
         //Check the per-tick limit
         if(!byPassLimit)
             amount = Math.min(amount, this.maxInput);
 
         //Check the inserted stack max size, in case a mod like AE2 try to insert a stack of non-stackable items
-        amount = Math.min(amount, Utils.makeItemStack(item, amount, nbt).getMaxStackSize());
+        amount = Math.min(amount, toInsert.getMaxStackSize());
 
         //Check the current stack limit
         amount = Math.min(amount, this.stack.getMaxStackSize() - this.stack.getCount());
@@ -130,15 +139,15 @@ public class ItemMachineComponent extends AbstractMachineComponent implements IS
         //Check the slot capacity
         amount = Math.min(amount, this.capacity - this.stack.getCount());
 
-        if(this.stack.isEmpty()) {
-            if(!simulate) {
-                this.stack = Utils.makeItemStack(item, amount, nbt);
+        if (this.stack.isEmpty()) {
+            if (!simulate) {
+                this.stack = toInsert.copyWithCount(amount);
                 getManager().markDirty();
                 if (getVariant() == UpgradeItemComponentVariant.INSTANCE)
                     getManager().getTile().getUpgradeManager().markDirty();
             }
             return amount;
-        } else if(this.stack.getItem() == item && (this.stack.getTag() == null || this.stack.getTag().equals(nbt))){
+        } else if (ItemStack.isSameItemSameTags(this.stack, toInsert)) {
             amount = Math.min(getRemainingSpace(), amount);
             if(!simulate) {
                 this.stack.grow(amount);
@@ -163,7 +172,7 @@ public class ItemMachineComponent extends AbstractMachineComponent implements IS
             amount = Math.min(amount, this.maxOutput);
 
         amount = Math.min(amount, this.stack.getCount());
-        ItemStack removed = Utils.makeItemStack(this.stack.getItem(), amount, this.stack.getTag());
+        ItemStack removed = this.stack.copyWithCount(amount);
         if(!simulate) {
             this.stack.shrink(amount);
             getManager().markDirty();
