@@ -41,6 +41,7 @@ public class MachineComponentManager implements IMachineComponentManager {
     private final List<IComparatorInputComponent> comparatorInputComponents;
     private final List<IDumpComponent> dumpComponents;
     private final Map<String, ISideConfigComponent> configComponents;
+    private boolean dirty = false;
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     public MachineComponentManager(List<IMachineComponentTemplate<? extends IMachineComponent>> templates, CustomMachineTile tile) {
@@ -150,6 +151,10 @@ public class MachineComponentManager implements IMachineComponentManager {
 
     public void serverTick() {
         getTickableComponents().forEach(ITickableComponent::serverTick);
+        if (dirty) {
+            getTile().setChanged();
+            dirty = false;
+        }
     }
 
     public void clientTick() {
@@ -157,8 +162,8 @@ public class MachineComponentManager implements IMachineComponentManager {
     }
 
     public void markDirty() {
-        this.getTile().setChanged();
-        this.getTile().getProcessor().setMachineInventoryChanged();
+        dirty = true;
+        getTile().getProcessor().setMachineInventoryChanged();
     }
 
     public CompoundTag serializeNBT() {

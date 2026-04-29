@@ -124,6 +124,8 @@ public class ItemMachineComponent extends AbstractMachineComponent implements IS
     public int insert(ItemStack toInsert, boolean simulate, boolean byPassLimit) {
         if (toInsert.isEmpty() || !isItemValid(toInsert))
             return 0;
+        if (getRemainingSpace() <= 0)
+            return 0;
 
         int amount = toInsert.getCount();
         //Check the per-tick limit
