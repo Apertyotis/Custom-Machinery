@@ -38,14 +38,14 @@ public class BlockMachineComponent extends AbstractMachineComponent {
 
     private static class FilterCache {
         Map<Block, Set<PartialBlockState>> filterMap;
-        Map<BlockPos, Boolean> cachedResultInWorld;
+        Long2ObjectOpenHashMap<Boolean> cachedResultInWorld;
         long timestamp;
 
         private static final Map<BlockRequirement, FilterCache> cachedFilter = new IdentityHashMap<>();
 
         FilterCache(Map<Block, Set<PartialBlockState>> filterMap) {
             this.filterMap = filterMap;
-            cachedResultInWorld = new HashMap<>();
+            cachedResultInWorld = new Long2ObjectOpenHashMap<>();
             timestamp = -1;
         }
 
@@ -75,7 +75,7 @@ public class BlockMachineComponent extends AbstractMachineComponent {
                 cachedResultInWorld.clear();
             }
 
-            return cachedResultInWorld.computeIfAbsent(pos, p -> testInner(block));
+            return cachedResultInWorld.computeIfAbsent(pos.asLong(), p -> testInner(block));
         }
 
         private boolean testInner(BlockInWorld block) {
@@ -96,11 +96,11 @@ public class BlockMachineComponent extends AbstractMachineComponent {
 
     private static class BlockCache {
         private final Long2ObjectMap<BlockInWorld> cachedBlock = new Long2ObjectOpenHashMap<>();
-        private static long timestamp = -1;
+        private long timestamp = -1;
 
         BlockInWorld getCachedBlockInWorld(LevelReader level, BlockPos pos, long timestamp) {
-            if (BlockCache.timestamp != timestamp) {
-                BlockCache.timestamp = timestamp;
+            if (this.timestamp != timestamp) {
+                this.timestamp = timestamp;
                 cachedBlock.clear();
             }
 
