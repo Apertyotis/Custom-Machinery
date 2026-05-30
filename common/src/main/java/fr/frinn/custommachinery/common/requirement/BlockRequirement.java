@@ -60,8 +60,6 @@ public class BlockRequirement extends AbstractDelayedChanceableRequirement<Block
     private final List<IIngredient<PartialBlockState>> filter;
     private final boolean whitelist;
 
-    private Map<Block, Set<PartialBlockState>> filterMap;
-
     public BlockRequirement(RequirementIOMode mode, ACTION action, AABB pos, int amount, ComparatorMode comparator, PartialBlockState block, List<IIngredient<PartialBlockState>> filter, boolean whitelist) {
         super(mode);
         this.action = action;
@@ -71,18 +69,15 @@ public class BlockRequirement extends AbstractDelayedChanceableRequirement<Block
         this.block = block;
         this.filter = filter;
         this.whitelist = whitelist;
+    }
 
-        filterMap = new HashMap<>();
+    public Map<Block, Set<PartialBlockState>> getFilterMap() {
+        Map<Block, Set<PartialBlockState>> filterMap = new HashMap<>();
         for (IIngredient<PartialBlockState> ingredient: filter) {
             for (PartialBlockState state: ingredient.getAll()) {
                 filterMap.computeIfAbsent(state.getBlockState().getBlock(), k -> new HashSet<>()).add(state);
             }
         }
-    }
-
-    public Map<Block, Set<PartialBlockState>> moveFilterMap() {
-        Map<Block, Set<PartialBlockState>> filterMap = this.filterMap;
-        this.filterMap = null;
         return filterMap;
     }
 

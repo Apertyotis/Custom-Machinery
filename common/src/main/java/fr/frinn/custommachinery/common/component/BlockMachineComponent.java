@@ -50,9 +50,9 @@ public class BlockMachineComponent extends AbstractMachineComponent {
         }
 
         static FilterCache getCachedRequirementFilter(BlockRequirement requirement) {
-            if (!cachedFilter.containsKey(requirement)) {
-                Map<Block, Set<PartialBlockState>> filterMap = requirement.moveFilterMap();
-                FilterCache cache = null;
+            FilterCache cache = cachedFilter.get(requirement);
+            if (cache == null) {
+                Map<Block, Set<PartialBlockState>> filterMap = requirement.getFilterMap();
                 for (FilterCache value: cachedFilter.values()) {
                     if (value.filterMap.equals(filterMap)) {
                         cache = value;
@@ -63,10 +63,8 @@ public class BlockMachineComponent extends AbstractMachineComponent {
                     cache = new FilterCache(filterMap);
                 }
                 cachedFilter.put(requirement, cache);
-                return cache;
-            } else {
-                return cachedFilter.get(requirement);
             }
+            return cache;
         }
 
         boolean test(BlockPos pos, BlockInWorld block, long timestamp) {
